@@ -232,18 +232,20 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
     const warehouse = seed.warehouses.find((item) => item.id === movement.warehouseId);
     const route = movement.pickupAddress ?? `${warehouse?.name ?? movement.warehouseId} · ${movement.containerNo}`;
     const performanceId = `VH-${movement.id}`;
+    const closesStorage =
+      movement.kind === "출고" && (movement.operationScope ?? "전체") === "전체";
 
     return {
       ...state,
       contracts: state.contracts.map((item) =>
-        item.id !== movement.contractId || movement.kind !== "출고"
+        item.id !== movement.contractId || !closesStorage
           ? item
           : done
             ? { ...item, status: "만료", closeReason: "정상 종료" }
             : { ...item, status: "정상", closeReason: undefined },
       ),
       containers: state.containers.map((unit) => {
-        if (movement.kind !== "출고") return unit;
+        if (!closesStorage) return unit;
         if (done && unit.contractId === movement.contractId) {
           return { ...unit, occupancyStatus: "available", contractId: null, occupancyDetail: null };
         }
@@ -257,7 +259,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           ? {
               ...customer,
               storageStatus: done
-                ? movement.kind === "출고"
+                ? closesStorage
                   ? "보관종료"
                   : "보관중"
                 : "보관중",
@@ -414,7 +416,12 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
-    addConsultation(customerId: string, channel: Customer["consultations"][number]["channel"], note: string) {
+    addConsultation(
+      customerId: string,
+      channel: Customer["consultations"][number]["channel"],
+      note: string,
+      requirements?: Customer["consultations"][number]["requirements"],
+    ) {
       update((prev) => {
         let next = advance(prev, 2);
         next = {
@@ -430,6 +437,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
                       author: OPERATOR.name,
                       channel,
                       note,
+                      requirements,
                     },
                     ...customer.consultations,
                   ],
@@ -700,17 +708,24 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
         if (completedMovement) {
           next = synchronizeMovementCompletion(next, completedMovement as Movement, true);
         }
+        const completed = completedMovement as Movement | null;
+        const closesStorage =
+          completed?.kind === "출고" && (completed.operationScope ?? "전체") === "전체";
         next = withAudit(next, {
-          action: completedMovement && (completedMovement as Movement).kind === "출고"
-            ? `출고완료 · 고객·계약·컨테이너 원장 연동`
+          action: completed?.kind === "출고"
+            ? closesStorage
+              ? `전체 출고완료 · 고객·계약·컨테이너 원장 연동`
+              : `${completed.operationScope ?? "부분"} 출고완료 · 보관 원장 유지`
             : `입출고 단계 진행 · ${label}`,
           target: movementId,
           category: "입출고",
         });
         return withToast(
           next,
-          completedMovement && (completedMovement as Movement).kind === "출고"
-            ? `${movementId} 출고를 완료하고 고객·계약·컨테이너 상태를 함께 갱신했습니다.`
+          completed?.kind === "출고"
+            ? closesStorage
+              ? `${movementId} 전체 출고를 완료하고 고객·계약·컨테이너 상태를 함께 갱신했습니다.`
+              : `${movementId} ${completed.operationScope ?? "부분"} 처리를 완료하고 계약·컨테이너는 유지했습니다.`
             : `${movementId} 단계를 '${label}'로 진행했습니다.`,
         );
       });
@@ -748,7 +763,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
-    createTransportVendor(input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "serviceAreas" | "note">) {
+    createTransportVendor(input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "operatorType" | "serviceAreas" | "note">) {
       const id = nextId("TV-NEW");
       update((prev) => {
         let next = advance(prev, 1);
@@ -775,7 +790,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       return id;
     },
 
-    updateTransportVendor(vendorId: string, input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "serviceAreas" | "note">) {
+    updateTransportVendor(vendorId: string, input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "operatorType" | "serviceAreas" | "note">) {
       update((prev) => {
         let next = advance(prev, 1);
         next = {
@@ -977,6 +992,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
 
     addSchedule(payload: {
       kind: Movement["kind"];
+      operationScope: NonNullable<Movement["operationScope"]>;
       contractId: string;
       scheduledDate: string;
       team: Movement["team"];
@@ -992,6 +1008,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
             {
               id,
               kind: payload.kind,
+              operationScope: payload.operationScope,
               contractId: payload.contractId,
               warehouseId: contract?.warehouseId ?? "WH-1",
               containerNo: contract?.containerNo ?? "미배정",
@@ -1035,6 +1052,8 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
         };
         const changed = next.movements.find((movement) => movement.id === movementId);
         if (changed) next = synchronizeMovementCompletion(next, changed, done);
+        const closesStorage =
+          changed?.kind === "출고" && (changed.operationScope ?? "전체") === "전체";
         next = withAudit(next, {
           action: done ? "입출고 처리 완료 표시" : "입출고 처리 완료 표시 해제",
           target: movementId,
@@ -1043,8 +1062,14 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
         return withToast(
           next,
           done
-            ? "처리 완료와 고객·계약·컨테이너·운송 수행 이력을 함께 갱신했습니다."
-            : "처리 완료 표시와 연결 원장 상태를 함께 되돌렸습니다.",
+            ? closesStorage
+              ? "전체 출고 완료와 고객·계약·컨테이너·운송 수행 이력을 함께 갱신했습니다."
+              : changed?.kind === "출고"
+                ? `${changed.operationScope ?? "부분"} 처리를 완료하고 보관 계약과 컨테이너는 유지했습니다.`
+                : "입고 완료와 고객·계약·컨테이너·운송 수행 이력을 함께 갱신했습니다."
+            : changed?.kind === "출고" && !closesStorage
+              ? "처리 완료 표시만 되돌리고 보관 계약과 컨테이너는 유지했습니다."
+              : "처리 완료 표시와 연결 원장 상태를 함께 되돌렸습니다.",
         );
       });
     },

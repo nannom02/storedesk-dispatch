@@ -3,7 +3,7 @@ import { Check, ExternalLink, History, Plus, Search, Send, Trash2, Truck } from 
 
 import { DescGrid, Modal, NoticeBar, PageHead, Panel, PanelRow, StateText, TableWrap } from "../components/ui";
 import { formatWon } from "../data/utils";
-import type { WorkInstruction } from "../data/types";
+import type { TransportVendor, WorkInstruction } from "../data/types";
 import { useStore } from "../store";
 
 const INSTRUCTION_FIELDS = [
@@ -13,6 +13,7 @@ const INSTRUCTION_FIELDS = [
   "출발지·도착지",
   "수취인·연락처",
   "엘리베이터 여부",
+  "전체·부분·재배치 구분",
 ];
 
 const RECIPIENT_LABELS: WorkInstruction["recipients"][number]["label"][] = [
@@ -26,6 +27,7 @@ const NEW_VENDOR = {
   manager: "정현수",
   phone: "010-7721-4085",
   businessNo: "212-86-51042",
+  operatorType: "외부 계약업체" as TransportVendor["operatorType"],
   serviceAreas: "서울, 경기 남부",
   note: "평일 입출고와 리프트 동시 배차 가능",
 };
@@ -69,7 +71,7 @@ export default function TransportOperations() {
     const term = keyword.trim();
     if (!term) return state.transportVendors;
     return state.transportVendors.filter((item) =>
-      [item.name, item.manager, item.phone, item.businessNo, ...item.serviceAreas].some((value) => value.includes(term)),
+      [item.name, item.manager, item.phone, item.businessNo, item.operatorType, ...item.serviceAreas].some((value) => value.includes(term)),
     );
   }, [keyword, state.transportVendors]);
 
@@ -98,6 +100,7 @@ export default function TransportOperations() {
       manager: target.manager,
       phone: target.phone,
       businessNo: target.businessNo,
+      operatorType: target.operatorType,
       serviceAreas: target.serviceAreas.join(", "),
       note: target.note,
     });
@@ -110,6 +113,7 @@ export default function TransportOperations() {
       manager: vendorForm.manager.trim(),
       phone: vendorForm.phone.trim(),
       businessNo: vendorForm.businessNo.trim(),
+      operatorType: vendorForm.operatorType,
       serviceAreas: vendorForm.serviceAreas.split(",").map((area) => area.trim()).filter(Boolean),
       note: vendorForm.note.trim(),
     };
@@ -131,12 +135,12 @@ export default function TransportOperations() {
       <PageHead
         kicker="운영 · 재공고 추가 범위"
         title="운송 배정·작업지시"
-        lead="외부 운송업체를 입출고 건에 배정하고, 고객·상담·희망 시각을 운영팀·창고팀·운송업체에 한 번에 전달합니다. 운송업체 화면은 로그인 없는 읽기 전용입니다."
+        lead="자체 이사팀과 외부 계약업체를 입출고 건에 배정하고, 고객·상담·희망 시각을 운영팀·창고팀·운송업체에 한 번에 전달합니다. 운송업체 화면은 로그인 없는 읽기 전용입니다."
         actions={<button type="button" className="ghost-button" onClick={openNewVendor}><Plus size={16} aria-hidden="true" /> 신규 운송업체 등록</button>}
       />
 
       <NoticeBar variant="review" title="이번 공고에서 확정된 변경 범위">
-        기존의 담당 기사 메모를 운송업체 원장·배정 이력·작업지시 발송으로 확장했습니다. 견적 계산과 예약금 수납, 운송업체 정산은 이번 범위에서 제외합니다.
+        기존의 담당 기사 메모를 운송업체 원장·배정 이력·작업지시 발송으로 확장했습니다. 자체 이사팀 구분은 공개 서비스 구조를 참고한 제안 기준이며 착수 시 확인합니다. 견적 계산과 예약금 수납, 운송업체 정산은 이번 범위에서 제외합니다.
       </NoticeBar>
 
       <Panel title="배정할 입출고 건" description="진행 중인 건을 바꾸면 배정·작업지시 문맥도 함께 전환됩니다.">
@@ -149,7 +153,7 @@ export default function TransportOperations() {
               aria-pressed={item.id === movement?.id}
               onClick={() => chooseMovement(item.id)}
             >
-              <span>{item.kind} · {item.containerNo}</span>
+              <span>{item.kind} · {item.operationScope ?? "전체"} · {item.containerNo}</span>
               <strong>{item.id}</strong>
               <small>{item.scheduledDate} · {item.vendorName ?? "운송업체 미배정"}</small>
             </button>
@@ -160,7 +164,7 @@ export default function TransportOperations() {
       <PanelRow columns="7-5">
         <Panel
           title="운송업체 찾기"
-          description="업체명·담당자·전화·사업자번호·활동 지역으로 검색합니다."
+          description="자체 이사팀과 외부 계약업체를 업체명·담당자·전화·사업자번호·활동 지역으로 검색합니다."
         >
           <label className="search-field transport-search">
             <Search size={16} aria-hidden="true" />
@@ -188,7 +192,7 @@ export default function TransportOperations() {
                     aria-selected={item.id === vendorId}
                     onClick={() => setVendorId(item.id)}
                   >
-                    <td data-label="업체"><strong>{item.name}</strong><span className="cell-sub" data-density="support">{item.businessNo}</span></td>
+                    <td data-label="업체"><strong>{item.name}</strong><span className="cell-sub" data-density="support">{item.operatorType} · {item.businessNo}</span></td>
                     <td data-label="담당자·연락처">{item.manager}<span className="cell-sub" data-density="support">{item.phone}</span></td>
                     <td data-label="활동 지역">{item.serviceAreas.join(" · ")}</td>
                     <td data-label="수행 실적">{item.completedJobs}건<span className="cell-sub">정시 {item.onTimeRate}%</span></td>
@@ -226,7 +230,8 @@ export default function TransportOperations() {
               columns="2"
               items={[
                 { label: "현재 운송업체", value: movement?.vendorName ?? "미배정" },
-                { label: "선택 운송업체", value: vendor?.name ?? "선택 필요" },
+                { label: "선택 운송업체", value: vendor ? `${vendor.name} · ${vendor.operatorType}` : "선택 필요" },
+                { label: "처리 범위", value: movement?.operationScope ?? "전체" },
                 { label: "창고", value: warehouse?.name ?? "-" },
                 { label: "예정일", value: movement?.scheduledDate ?? "-" },
               ]}
@@ -342,7 +347,7 @@ export default function TransportOperations() {
           </div>
           <div className="instruction-preview">
             <span className="panel-note">읽기 전용 운송업체 미리보기</span>
-            <strong>{movement?.kind ?? "입출고"} 작업지시 · {movement?.containerNo ?? "-"}</strong>
+            <strong>{movement?.kind ?? "입출고"} 작업지시 · {movement?.operationScope ?? "전체"} · {movement?.containerNo ?? "-"}</strong>
             <p>{customer?.name ?? "고객"} · {movement?.desiredTime ?? "희망 시각 확인"} · {movement?.pickupAddress ?? "주소는 상담 정보에서 불러옵니다."}</p>
             <p>수취인 {movement?.recipient ?? customer?.name ?? "확인 필요"} · {movement?.recipientPhone ?? customer?.contact ?? "연락처 확인 필요"}</p>
             <span className="support-text">운송업체는 이 정보를 열람만 할 수 있으며 수정·입력 기능은 제공하지 않습니다.</span>
@@ -369,7 +374,7 @@ export default function TransportOperations() {
       {vendorEditorOpen ? (
         <Modal
           title={editingVendorId ? "운송업체 기준정보 수정" : "신규 운송업체 등록"}
-          description="업체명·담당자·연락처·사업자번호·활동 지역·운영 메모를 기준정보로 저장합니다."
+          description="운송 주체·업체명·담당자·연락처·사업자번호·활동 지역·운영 메모를 기준정보로 저장합니다."
           onClose={() => setVendorEditorOpen(false)}
           actions={
             <>
@@ -396,6 +401,7 @@ export default function TransportOperations() {
           }
         >
           <div className="field-grid">
+            <label className="field"><span className="field-label">운송 주체</span><select value={vendorForm.operatorType} onChange={(event) => setVendorForm((current) => ({ ...current, operatorType: event.target.value as TransportVendor["operatorType"] }))}><option value="자체 이사팀">자체 이사팀</option><option value="외부 계약업체">외부 계약업체</option></select></label>
             <label className="field"><span className="field-label">업체명</span><input value={vendorForm.name} onChange={(event) => setVendorForm((current) => ({ ...current, name: event.target.value }))} /></label>
             <label className="field"><span className="field-label">담당자</span><input value={vendorForm.manager} onChange={(event) => setVendorForm((current) => ({ ...current, manager: event.target.value }))} /></label>
             <label className="field"><span className="field-label">연락처</span><input value={vendorForm.phone} onChange={(event) => setVendorForm((current) => ({ ...current, phone: event.target.value }))} /></label>

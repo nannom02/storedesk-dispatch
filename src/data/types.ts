@@ -2,12 +2,22 @@ export type CustomerKind = "개인" | "법인";
 export type AcquisitionSource = string;
 export type CustomerStorageStatus = "상담중" | "보관중" | "보관종료";
 
+export interface StorageConsultationRequirements {
+  serviceCategory: "이사" | "이사+보관" | "기업 보관";
+  items: string;
+  estimatedVolume: string;
+  storagePeriod: string;
+  preferredStorageLevel: string;
+  movementPlan: "전체 입출고" | "부분 출고 예정" | "주기적 입출고";
+}
+
 export interface Consultation {
   id: string;
   at: string;
   author: string;
   channel: "전화" | "방문" | "챗봇" | "문자";
   note: string;
+  requirements?: StorageConsultationRequirements;
 }
 
 export interface Customer {
@@ -65,6 +75,11 @@ export interface Warehouse {
   name: string;
   address: string;
   storageType: string;
+  serviceLevel: string;
+  storageEnvironment: string;
+  accessPolicy: string;
+  securityFeatures: string;
+  handlingSupport: string;
   totalContainers: number;
   team: "A팀" | "B팀" | "C팀";
   managerName: string;
@@ -142,10 +157,12 @@ export interface PayerAlias {
 }
 
 export type MovementKind = "입고" | "출고";
+export type MovementScope = "전체" | "부분" | "재입고·재배치";
 
 export interface Movement {
   id: string;
   kind: MovementKind;
+  operationScope?: MovementScope;
   contractId: string;
   warehouseId: string;
   containerNo: string;
@@ -181,6 +198,7 @@ export interface TransportVendor {
   manager: string;
   phone: string;
   businessNo: string;
+  operatorType: "자체 이사팀" | "외부 계약업체";
   serviceAreas: string[];
   note: string;
   completedJobs: number;

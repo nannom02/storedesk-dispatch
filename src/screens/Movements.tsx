@@ -39,6 +39,10 @@ const PHONE_TABS = [
 const QUICK_NUMBERS = ["A-14", "A-33", "B-07", "B-19", "C-04", "C-21"];
 const PAGE_SIZE = 10;
 
+function operationScopeOf(movement: Movement) {
+  return movement.operationScope ?? "전체";
+}
+
 export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
   const { state, derived, actions } = useStore();
   const focus = readNavigationContext();
@@ -59,6 +63,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
     ? {
         id: `HIST-${focusedUnit?.no ?? "CONTAINER"}`,
         kind: focusedSnapshot.latestMovement.includes("출고") ? "출고" : "입고",
+        operationScope: "전체",
         contractId: focusedSnapshot.contractId,
         warehouseId: focusedUnit?.warehouseId ?? focus.warehouseId ?? "WH-1",
         containerNo: focusedUnit?.no ?? focus.containerNo ?? "-",
@@ -134,7 +139,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
       <PageHead
         kicker="운영 · 입고 4단계 · 출고 3단계"
         title="입출고 관리"
-        lead="입고·출고 단계를 사무실과 현장에서 같은 기준으로 처리합니다. 출고완료 시 고객·계약·컨테이너 상태가 함께 갱신됩니다."
+        lead="입고·출고 단계를 사무실과 현장에서 같은 기준으로 처리합니다. 전체 출고완료 때만 고객·계약·컨테이너를 종료하고, 부분 출고와 재입고·재배치는 보관 원장을 유지합니다."
       />
 
       <Panel>
@@ -198,7 +203,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
                     <td data-label="건번호">
                       <span className="cell-strong id-cell">{movement.id}</span>
                     </td>
-                    <td data-label="구분">{movement.kind}</td>
+                    <td data-label="구분">{movement.kind}<span className="cell-sub">{operationScopeOf(movement)}</span></td>
                     <td data-label="계약 · 고객">
                       {targetCustomerName ?? "-"}
                       <span className="cell-sub id-cell" data-density="support">{movement.contractId}</span>
@@ -240,7 +245,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
             title={selected ? `${selected.id} 진행` : "진행"}
             description={
               selected
-                ? `${selected.kind} · ${selectedCustomerName} · ${selected.containerNo} · ${selectedIsSnapshot ? "처리" : "예정"} ${selected.scheduledDate}`
+                ? `${selected.kind} · ${operationScopeOf(selected)} · ${selectedCustomerName} · ${selected.containerNo} · ${selectedIsSnapshot ? "처리" : "예정"} ${selected.scheduledDate}`
                 : "건을 선택하세요."
             }
             actions={
@@ -282,6 +287,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
                     columns="3"
                     items={[
                       { label: "현재 단계", value: steps[selected.stepIndex] },
+                      { label: "처리 범위", value: operationScopeOf(selected) },
                       { label: "처리자", value: selected.handledBy ?? "미처리" },
                       { label: "처리 시각", value: selected.handledAt ?? "-" },
                       { label: "담당 팀·운송업체", value: `${selected.team} · ${selected.vendorName ?? "미배정"}` },
@@ -302,7 +308,9 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
                 {selected.done && !selectedIsSnapshot ? (
                   <div className="disabled-reason" role="status" aria-label="완료 연동 결과" data-density="support">
                     {selected.kind === "출고"
-                      ? `출고완료 · 계약 ${selected.contractId} 만료 · 컨테이너 ${selected.containerNo} 사용 가능 · 고객 보관종료`
+                      ? operationScopeOf(selected) === "전체"
+                        ? `전체 출고완료 · 계약 ${selected.contractId} 만료 · 컨테이너 ${selected.containerNo} 사용 가능 · 고객 보관종료`
+                        : `${operationScopeOf(selected)} 처리 완료 · 계약 ${selected.contractId} 유지 · 컨테이너 ${selected.containerNo} 사용 중 · 고객 보관중`
                       : `입고완료 · 고객 보관중 · 창고번호 ${selected.containerNo}로 원장 연결`}
                   </div>
                 ) : null}
@@ -313,8 +321,8 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
           </Panel>
 
           <Panel
-            title="현장 사진과 공개 범위"
-            description="운영 담당자가 받은 사진을 입출고 건에 연결합니다. 입고는 고객 열람, 출고는 내부 전용이 기본안입니다."
+            title="현장 증빙과 공개 범위"
+            description="사진을 입출고 건에 연결하고 공개 범위를 관리합니다. 현재 범위는 사진이며, 동영상은 같은 증빙 원장으로 확장할 수 있습니다."
           >
             <div role="status" aria-label="현장 사진 첨부">
               {selected && selected.photos.length > 0 ? (
@@ -338,7 +346,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
               )}
             </div>
             <p className="panel-note">
-              사진 업로드 주체는 미확정입니다. 본 시안은 운영 담당자 업로드를 기본으로 하고, 운송업체 입력 링크는 선택 옵션으로 분리했습니다.
+              사진 업로드 주체는 미확정입니다. 본 시안은 운영 담당자 업로드를 기본으로 하고, 운송업체 입력 링크와 동영상 증빙은 선택 옵션으로 분리했습니다.
             </p>
           </Panel>
         </div>
@@ -381,7 +389,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
                             {movement.kind} · {movement.containerNo}
                           </strong>
                           <span data-density="support">
-                            {derived.contractLabel(movement.contractId)} · {movement.team}{" "}
+                            {derived.contractLabel(movement.contractId)} · {operationScopeOf(movement)} · {movement.team}{" "}
                             {movement.driver}
                           </span>
                           <StateText tone={movement.done ? "ok" : "info"}>

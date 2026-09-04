@@ -13,7 +13,7 @@ import {
   TableWrap,
 } from "../components/ui";
 import { customers as seedCustomers, TOTAL_CUSTOMERS } from "../data/seed";
-import type { AcquisitionSource, CustomerKind } from "../data/types";
+import type { AcquisitionSource, CustomerKind, StorageConsultationRequirements } from "../data/types";
 import { useStore } from "../store";
 
 const FILTERS = [
@@ -34,6 +34,14 @@ const INITIAL_CUSTOMER = {
 };
 
 const PAGE_SIZE = 10;
+const INITIAL_REQUIREMENTS: StorageConsultationRequirements = {
+  serviceCategory: "기업 보관",
+  items: "행사 집기·기업 문서",
+  estimatedVolume: "파렛트 8개",
+  storagePeriod: "12개월",
+  preferredStorageLevel: "Level 5 · 매니지드",
+  movementPlan: "부분 출고 예정",
+};
 
 export default function Customers() {
   const { state, actions } = useStore();
@@ -47,9 +55,10 @@ export default function Customers() {
   const [consultOpen, setConsultOpen] = useState(false);
   const [payerOpen, setPayerOpen] = useState(false);
   const [consultNote, setConsultNote] = useState(
-    "만료 예정 안내 통화. 대표 개인 명의 입금 건은 등록 입금자명에 추가하기로 확인.",
+    "행사 집기와 기업 문서를 12개월 보관하고, 행사 일정에 맞춰 일부 물품을 부분 출고하기로 상담.",
   );
   const [consultChannel, setConsultChannel] = useState<"전화" | "방문" | "챗봇" | "문자">("전화");
+  const [consultRequirements, setConsultRequirements] = useState(INITIAL_REQUIREMENTS);
   const [payerName, setPayerName] = useState("김성호");
   const [channelOpen, setChannelOpen] = useState(false);
   const [channelName, setChannelName] = useState("지역 제휴 문의");
@@ -315,6 +324,19 @@ export default function Customers() {
                       </span>
                     </div>
                     <p>{consultation.note}</p>
+                    {consultation.requirements ? (
+                      <DescGrid
+                        columns="3"
+                        items={[
+                          { label: "상담 구분", value: consultation.requirements.serviceCategory },
+                          { label: "보관 물품", value: consultation.requirements.items },
+                          { label: "예상 물량", value: consultation.requirements.estimatedVolume },
+                          { label: "보관 기간", value: consultation.requirements.storagePeriod },
+                          { label: "희망 등급", value: consultation.requirements.preferredStorageLevel },
+                          { label: "입출고 계획", value: consultation.requirements.movementPlan },
+                        ]}
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -565,7 +587,7 @@ export default function Customers() {
                 type="button"
                 className="primary-button"
                 onClick={() => {
-                  actions.addConsultation(selected.id, consultChannel, consultNote);
+                  actions.addConsultation(selected.id, consultChannel, consultNote, consultRequirements);
                   setConsultOpen(false);
                 }}
               >
@@ -574,7 +596,7 @@ export default function Customers() {
             </>
           }
         >
-          <div className="field-grid" data-single="true">
+          <div className="field-grid">
             <label className="field">
               <span className="field-label">상담 경로</span>
               <select
@@ -590,6 +612,19 @@ export default function Customers() {
               </select>
             </label>
             <label className="field">
+              <span className="field-label">상담 구분</span>
+              <select value={consultRequirements.serviceCategory} onChange={(event) => setConsultRequirements((current) => ({ ...current, serviceCategory: event.target.value as StorageConsultationRequirements["serviceCategory"] }))}>
+                <option value="이사">이사</option>
+                <option value="이사+보관">이사+보관</option>
+                <option value="기업 보관">기업 보관</option>
+              </select>
+            </label>
+            <label className="field"><span className="field-label">보관 물품</span><input value={consultRequirements.items} onChange={(event) => setConsultRequirements((current) => ({ ...current, items: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">예상 물량</span><input value={consultRequirements.estimatedVolume} onChange={(event) => setConsultRequirements((current) => ({ ...current, estimatedVolume: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">보관 기간</span><input value={consultRequirements.storagePeriod} onChange={(event) => setConsultRequirements((current) => ({ ...current, storagePeriod: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">희망 보관 등급</span><select value={consultRequirements.preferredStorageLevel} onChange={(event) => setConsultRequirements((current) => ({ ...current, preferredStorageLevel: event.target.value }))}><option value="Level 1 · 이코노믹">Level 1 · 이코노믹</option><option value="Level 5 · 매니지드">Level 5 · 매니지드</option><option value="Level 6 · 프리미엄">Level 6 · 프리미엄</option></select></label>
+            <label className="field"><span className="field-label">입출고 계획</span><select value={consultRequirements.movementPlan} onChange={(event) => setConsultRequirements((current) => ({ ...current, movementPlan: event.target.value as StorageConsultationRequirements["movementPlan"] }))}><option value="전체 입출고">전체 입출고</option><option value="부분 출고 예정">부분 출고 예정</option><option value="주기적 입출고">주기적 입출고</option></select></label>
+            <label className="field" data-span="full">
               <span className="field-label">상담 내용</span>
               <textarea value={consultNote} onChange={(event) => setConsultNote(event.target.value)} />
             </label>

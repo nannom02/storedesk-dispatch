@@ -86,7 +86,7 @@ export default function Warehouses({ onNavigate }: { onNavigate: Navigate }) {
       <PageHead
         kicker="운영 · 창고 3개소 기준정보"
         title="창고·컨테이너"
-        lead="창고별 보관 형태와 가동 현황을 확인하고, 배치도에서 컨테이너를 선택해 고객·계약·입출고 내역을 조회하거나 빈 컨테이너를 배정합니다."
+        lead="창고별 보관 등급·환경·출입·보안 조건과 가동 현황을 확인하고, 배치도에서 컨테이너를 선택해 고객·계약·입출고 내역을 조회하거나 빈 컨테이너를 배정합니다."
         actions={
           <button type="button" className="primary-button" onClick={() => openAssignment()}>
             <PackagePlus size={16} aria-hidden="true" />
@@ -116,14 +116,20 @@ export default function Warehouses({ onNavigate }: { onNavigate: Navigate }) {
         <DescGrid
           columns="3"
           items={[
-            { label: "주소", value: warehouse.address },
-            { label: "보관 형태", value: warehouse.storageType },
+            { label: "보관 서비스", value: `${warehouse.serviceLevel} · ${warehouse.storageType}` },
             { label: "담당 팀", value: `${warehouse.team} · ${warehouse.managerName}` },
+            { label: "보관 환경", value: warehouse.storageEnvironment },
+            { label: "출입 기준", value: warehouse.accessPolicy },
+            { label: "보안", value: warehouse.securityFeatures },
+            { label: "하역·운송 지원", value: warehouse.handlingSupport },
             { label: "총 컨테이너", value: `${warehouse.totalContainers}기` },
             { label: "사용 중", value: `${used}기` },
             { label: "여유", value: `${warehouse.totalContainers - used}기` },
           ]}
         />
+        <p className="panel-note">
+          보관 등급·출입·보안 값은 공개 서비스 구조를 참고한 제안 기준이며 실제 운영값은 착수 시 확정합니다.
+        </p>
       </Panel>
 
       <PanelRow columns="7-5">
@@ -293,7 +299,7 @@ export default function Warehouses({ onNavigate }: { onNavigate: Navigate }) {
             </div>
           </Panel>
 
-          <Panel title="보관 유형·규격 기준" description="창고별 보관 환경과 컨테이너 길이 구분입니다.">
+          <Panel title="보관 등급·운영 기준" description="창고별 보관 환경과 출입·하역 조건을 함께 관리합니다.">
             <ul className="record-list">
               {warehouses.map((item) => (
                 <li key={item.id}>
@@ -304,7 +310,7 @@ export default function Warehouses({ onNavigate }: { onNavigate: Navigate }) {
                     <span className="record-meta" data-density="support">{item.team}</span>
                   </div>
                   <p>
-                    {item.storageType} · 총 {item.totalContainers}기
+                    {item.serviceLevel} · {item.storageEnvironment} · {item.accessPolicy} · 총 {item.totalContainers}기
                   </p>
                 </li>
               ))}

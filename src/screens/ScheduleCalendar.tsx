@@ -3,7 +3,7 @@ import { CalendarPlus, CheckCircle2 } from "lucide-react";
 
 import { DescGrid, Modal, PageHead, Panel } from "../components/ui";
 import { INBOUND_STEPS, OUTBOUND_STEPS, TODAY } from "../data/seed";
-import type { Movement } from "../data/types";
+import type { Movement, MovementScope } from "../data/types";
 import { formatKoreanDate } from "../data/utils";
 import { useStore } from "../store";
 
@@ -18,6 +18,7 @@ export default function ScheduleCalendar() {
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [addOpen, setAddOpen] = useState(false);
   const [formKind, setFormKind] = useState<"입고" | "출고">("입고");
+  const [formScope, setFormScope] = useState<MovementScope>("전체");
   const [formContract, setFormContract] = useState("SC-2026-0301");
   const [formTeam, setFormTeam] = useState<"A팀" | "B팀" | "C팀">("A팀");
   const [formDriver, setFormDriver] = useState("조현우");
@@ -153,7 +154,7 @@ export default function ScheduleCalendar() {
                             </span>
                           </div>
                           <p>
-                            {contract ? derived.customerOf(contract)?.name : "-"} · {movement.contractId} ·
+                            {contract ? derived.customerOf(contract)?.name : "-"} · {movement.contractId} · {movement.operationScope ?? "전체"} ·
                             기사 {movement.driver}
                           </p>
                           <p>
@@ -217,6 +218,7 @@ export default function ScheduleCalendar() {
                 onClick={() => {
                   actions.addSchedule({
                     kind: formKind,
+                    operationScope: formKind === "입고" ? "전체" : formScope,
                     contractId: formContract,
                     scheduledDate: selectedDate,
                     team: formTeam,
@@ -235,10 +237,26 @@ export default function ScheduleCalendar() {
               <span className="field-label">구분</span>
               <select
                 value={formKind}
-                onChange={(event) => setFormKind(event.target.value as "입고" | "출고")}
+                onChange={(event) => {
+                  const nextKind = event.target.value as "입고" | "출고";
+                  setFormKind(nextKind);
+                  if (nextKind === "입고") setFormScope("전체");
+                }}
               >
                 <option value="입고">입고</option>
                 <option value="출고">출고</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">처리 범위</span>
+              <select
+                value={formScope}
+                disabled={formKind === "입고"}
+                onChange={(event) => setFormScope(event.target.value as MovementScope)}
+              >
+                <option value="전체">전체</option>
+                <option value="부분">부분 출고</option>
+                <option value="재입고·재배치">재입고·재배치</option>
               </select>
             </label>
             <label className="field">

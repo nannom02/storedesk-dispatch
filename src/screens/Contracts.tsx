@@ -387,6 +387,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
                         : formatDday(daysBetween(TODAY, selected.endDate)),
                   },
                   { label: "계약 상태", value: selected.status },
+                  { label: "보관 서비스", value: warehouse ? `${warehouse.serviceLevel} · ${warehouse.storageType}` : "확인 필요" },
                   { label: "월 이용료", value: formatWon(selected.monthlyFee) },
                   { label: "할인", value: selected.discount ? formatWon(selected.discount) : "없음" },
                   { label: "보증금", value: formatWon(selected.deposit) },
