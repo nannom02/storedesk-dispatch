@@ -91,18 +91,19 @@
 }
 
 [data-service-introduction-screen] .service-introduction-role-flows li {
+  position: relative;
   display: flex;
   flex: 0 1 210px;
   align-items: center;
-  gap: var(--space-2);
   min-width: 0;
+  padding-right: calc(15px + var(--space-2));
 }
 
 [data-service-introduction-screen] .service-introduction-role-flows li > svg {
-  position: static;
-  flex: none;
-  order: 2;
-  transform: none;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
 }
 
 [data-service-introduction-screen] .service-introduction-role-flows button {
@@ -167,6 +168,7 @@
 
   [data-service-introduction-screen] .service-introduction-role-flows li {
     flex-basis: 100%;
+    padding-right: 0;
   }
 
   [data-service-introduction-screen] .service-introduction-role-flows li > svg {
