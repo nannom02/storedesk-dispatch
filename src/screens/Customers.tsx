@@ -14,6 +14,7 @@ import {
 } from "../components/ui";
 import { customers as seedCustomers, TOTAL_CUSTOMERS } from "../data/seed";
 import type { AcquisitionSource, CustomerKind, StorageConsultationRequirements } from "../data/types";
+import { readStoredTablePageSize, storeTablePageSize, TABLE_PAGE_SIZE_OPTIONS } from "../data/utils";
 import { useStore } from "../store";
 
 const FILTERS = [
@@ -33,7 +34,7 @@ const INITIAL_CUSTOMER = {
   acquisitionSource: "카카오" as AcquisitionSource,
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_STORAGE_KEY = "storedesk:customers:page-size";
 const INITIAL_REQUIREMENTS: StorageConsultationRequirements = {
   serviceCategory: "기업 보관",
   items: "행사 집기·기업 문서",
@@ -64,6 +65,7 @@ export default function Customers() {
   const [channelName, setChannelName] = useState("지역 제휴 문의");
   const [channelResult, setChannelResult] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => readStoredTablePageSize(PAGE_SIZE_STORAGE_KEY));
 
   const rows = useMemo(() => {
     const term = keyword.trim();
@@ -83,16 +85,22 @@ export default function Customers() {
   const contracts = state.contracts.filter((contract) => contract.customerId === selectedId);
   const totalCustomers =
     TOTAL_CUSTOMERS + Math.max(0, state.customers.length - seedCustomers.length);
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pageRows = rows.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageRows = rows.slice(pageStart, pageStart + pageSize);
 
   const goToPage = (nextPage: number) => {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
     setPage(safePage);
-    const firstRow = rows[(safePage - 1) * PAGE_SIZE];
+    const firstRow = rows[(safePage - 1) * pageSize];
     if (firstRow) setSelectedId(firstRow.id);
+  };
+
+  const changePageSize = (nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    storeTablePageSize(PAGE_SIZE_STORAGE_KEY, nextPageSize);
+    setPage(1);
   };
 
   const openCustomerForm = () => {
@@ -198,8 +206,8 @@ export default function Customers() {
         <TableWrap
           footer={
             <>
-              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}명` : "0명 표시"} · 등록 입금자명 {rows.reduce((sum, c) => sum + c.payerNames.length, 0)}건</span>
-              <TablePagination page={currentPage} totalItems={rows.length} pageSize={PAGE_SIZE} label="고객 목록" onChange={goToPage} />
+              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + pageSize, rows.length)} / ${rows.length}명` : "0명 표시"} · 등록 입금자명 {rows.reduce((sum, c) => sum + c.payerNames.length, 0)}건</span>
+              <TablePagination page={currentPage} totalItems={rows.length} pageSize={pageSize} label="고객 목록" onChange={goToPage} pageSizeOptions={TABLE_PAGE_SIZE_OPTIONS} onPageSizeChange={changePageSize} />
             </>
           }
         >

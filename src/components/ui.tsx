@@ -192,35 +192,59 @@ export function TablePagination({
   pageSize,
   label,
   onChange,
+  pageSizeOptions,
+  onPageSizeChange,
 }: {
   page: number;
   totalItems: number;
   pageSize: number;
   label: string;
   onChange: (page: number) => void;
+  pageSizeOptions?: readonly number[];
+  onPageSizeChange?: (pageSize: number) => void;
 }) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1 && !onPageSizeChange) return null;
 
   return (
-    <div className="table-pagination" role="navigation" aria-label={`${label} 페이지`}>
-      <button type="button" aria-label={`${label} 이전 페이지`} disabled={page === 1} onClick={() => onChange(page - 1)}>
-        <ChevronLeft size={15} aria-hidden="true" />
-      </button>
-      {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-        <button
-          key={pageNumber}
-          type="button"
-          aria-label={`${label} ${pageNumber}페이지`}
-          aria-current={pageNumber === page ? "page" : undefined}
-          onClick={() => onChange(pageNumber)}
-        >
-          {pageNumber}
-        </button>
-      ))}
-      <button type="button" aria-label={`${label} 다음 페이지`} disabled={page === totalPages} onClick={() => onChange(page + 1)}>
-        <ChevronRight size={15} aria-hidden="true" />
-      </button>
+    <div className="table-paging-controls">
+      {onPageSizeChange ? (
+        <label className="table-page-size">
+          <span>표시</span>
+          <select
+            value={pageSize}
+            aria-label={`${label} 표시 개수`}
+            onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          >
+            {(pageSizeOptions ?? [5, 10, 20]).map((option) => (
+              <option key={option} value={option}>
+                {option}개
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {totalPages > 1 ? (
+        <div className="table-pagination" role="navigation" aria-label={`${label} 페이지`}>
+          <button type="button" aria-label={`${label} 이전 페이지`} disabled={page === 1} onClick={() => onChange(page - 1)}>
+            <ChevronLeft size={15} aria-hidden="true" />
+          </button>
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+            <button
+              key={pageNumber}
+              type="button"
+              aria-label={`${label} ${pageNumber}페이지`}
+              aria-current={pageNumber === page ? "page" : undefined}
+              onClick={() => onChange(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button type="button" aria-label={`${label} 다음 페이지`} disabled={page === totalPages} onClick={() => onChange(page + 1)}>
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

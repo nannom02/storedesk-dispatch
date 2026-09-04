@@ -33,6 +33,31 @@ export function formatKoreanDate(value: string): string {
   return `${Number(month)}월 ${Number(day)}일`;
 }
 
+export const TABLE_PAGE_SIZE_OPTIONS = [5, 10, 20] as const;
+
+export function readStoredTablePageSize(storageKey: string): number {
+  if (typeof window === "undefined") return TABLE_PAGE_SIZE_OPTIONS[0];
+
+  try {
+    const stored = Number(window.localStorage.getItem(storageKey));
+    return TABLE_PAGE_SIZE_OPTIONS.includes(
+      stored as (typeof TABLE_PAGE_SIZE_OPTIONS)[number],
+    )
+      ? stored
+      : TABLE_PAGE_SIZE_OPTIONS[0];
+  } catch {
+    return TABLE_PAGE_SIZE_OPTIONS[0];
+  }
+}
+
+export function storeTablePageSize(storageKey: string, pageSize: number): void {
+  try {
+    window.localStorage.setItem(storageKey, String(pageSize));
+  } catch {
+    // 저장소를 사용할 수 없는 브라우저에서도 현재 화면의 선택은 유지한다.
+  }
+}
+
 /**
  * 연체료 = 미납 원금 × 연이율 ÷ 365 × (연체일수 − 유예일수).
  * 환경 설정의 값이 바뀌면 연체·정산과 대시보드 미수금이 함께 다시 계산된다.

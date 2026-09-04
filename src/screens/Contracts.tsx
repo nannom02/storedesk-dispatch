@@ -15,7 +15,7 @@ import {
   TableWrap,
 } from "../components/ui";
 import { TODAY } from "../data/seed";
-import { daysBetween, formatDday, formatWon } from "../data/utils";
+import { daysBetween, formatDday, formatWon, readStoredTablePageSize, storeTablePageSize, TABLE_PAGE_SIZE_OPTIONS } from "../data/utils";
 import type { Contract } from "../data/types";
 import { readNavigationContext } from "../navigation";
 import type { Navigate } from "../navigation";
@@ -31,7 +31,7 @@ const FILTERS = [
   { id: "중도 해지", label: "중도 해지" },
 ];
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_STORAGE_KEY = "storedesk:contracts:page-size";
 
 type ContractForm = Pick<
   Contract,
@@ -95,6 +95,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
   const [contractError, setContractError] = useState("");
   const [contractResult, setContractResult] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => readStoredTablePageSize(PAGE_SIZE_STORAGE_KEY));
   const [contractForm, setContractForm] = useState<ContractForm>({
     customerId: state.customers[0]?.id ?? "",
     warehouseId: state.containers.find((unit) => unit.occupancyStatus === "available")?.warehouseId ?? "WH-1",
@@ -140,16 +141,22 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
     만료: allContracts.filter((c) => c.status === "만료").length,
     "중도 해지": allContracts.filter((c) => c.status === "중도 해지").length,
   };
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pageRows = rows.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageRows = rows.slice(pageStart, pageStart + pageSize);
 
   const goToPage = (nextPage: number) => {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
     setPage(safePage);
-    const firstRow = rows[(safePage - 1) * PAGE_SIZE];
+    const firstRow = rows[(safePage - 1) * pageSize];
     if (firstRow) setSelectedId(firstRow.id);
+  };
+
+  const changePageSize = (nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    storeTablePageSize(PAGE_SIZE_STORAGE_KEY, nextPageSize);
+    setPage(1);
   };
 
   const openCreateContract = () => {
@@ -270,8 +277,8 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
         <TableWrap
           footer={
             <>
-              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}건` : "0건 표시"} · 월 이용료 합계 <span className="tabular">{formatWon(rows.reduce((sum, c) => sum + c.monthlyFee - c.discount, 0))}</span></span>
-              <TablePagination page={currentPage} totalItems={rows.length} pageSize={PAGE_SIZE} label="계약 목록" onChange={goToPage} />
+              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + pageSize, rows.length)} / ${rows.length}건` : "0건 표시"} · 월 이용료 합계 <span className="tabular">{formatWon(rows.reduce((sum, c) => sum + c.monthlyFee - c.discount, 0))}</span></span>
+              <TablePagination page={currentPage} totalItems={rows.length} pageSize={pageSize} label="계약 목록" onChange={goToPage} pageSizeOptions={TABLE_PAGE_SIZE_OPTIONS} onPageSizeChange={changePageSize} />
             </>
           }
         >

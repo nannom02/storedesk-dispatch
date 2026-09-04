@@ -34,7 +34,7 @@
       "screen": "고객·상담",
       "entry": [{ "role": "button", "name": "고객·상담" }],
       "control": { "role": "button", "name": "고객 목록 2페이지" },
-      "expected": { "role": "button", "name": "강나래 고객 상세" }
+      "expected": { "role": "button", "name": "서예린 고객 상세" }
     },
     {
       "requirementId": "INT-CUST-CREATE",
@@ -102,7 +102,7 @@
       "screen": "계약",
       "entry": [{ "role": "button", "name": "계약" }],
       "control": { "role": "button", "name": "계약 목록 2페이지" },
-      "expected": { "role": "button", "name": "SC-2026-0640 계약 상세" }
+      "expected": { "role": "button", "name": "SC-2025-0844 계약 상세" }
     },
     {
       "requirementId": "INT-CT-OPEN",
@@ -200,7 +200,7 @@
       "screen": "입출고 관리",
       "entry": [{ "role": "button", "name": "입출고 관리" }],
       "control": { "role": "button", "name": "입출고 목록 2페이지" },
-      "expected": { "role": "button", "name": "MV-2609-032 상세" }
+      "expected": { "role": "button", "name": "MV-2609-027 상세" }
     },
     {
       "requirementId": "INT-CAL-DATE",

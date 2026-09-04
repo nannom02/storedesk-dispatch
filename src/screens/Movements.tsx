@@ -15,6 +15,7 @@ import {
 } from "../components/ui";
 import { INBOUND_STEPS, OUTBOUND_STEPS, TODAY } from "../data/seed";
 import type { Movement } from "../data/types";
+import { readStoredTablePageSize, storeTablePageSize, TABLE_PAGE_SIZE_OPTIONS } from "../data/utils";
 import { readNavigationContext } from "../navigation";
 import type { Navigate } from "../navigation";
 import { useStore } from "../store";
@@ -37,7 +38,7 @@ const PHONE_TABS = [
 ];
 
 const QUICK_NUMBERS = ["A-14", "A-33", "B-07", "B-19", "C-04", "C-21"];
-const PAGE_SIZE = 10;
+const PAGE_SIZE_STORAGE_KEY = "storedesk:movements:page-size";
 
 function operationScopeOf(movement: Movement) {
   return movement.operationScope ?? "전체";
@@ -94,6 +95,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
   const [query, setQuery] = useState("");
   const [lookup, setLookup] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => readStoredTablePageSize(PAGE_SIZE_STORAGE_KEY));
 
   const rows = allMovements.filter((movement) => {
     if (
@@ -122,16 +124,22 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
     : undefined;
   const lookupCustomer = lookupContract ? derived.customerOf(lookupContract) : undefined;
   const todayMovements = state.movements.filter((movement) => movement.scheduledDate === TODAY);
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pageRows = rows.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageRows = rows.slice(pageStart, pageStart + pageSize);
 
   function goToPage(nextPage: number) {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
     setPage(safePage);
-    const firstRow = rows[(safePage - 1) * PAGE_SIZE];
+    const firstRow = rows[(safePage - 1) * pageSize];
     if (firstRow) setSelectedId(firstRow.id);
+  }
+
+  function changePageSize(nextPageSize: number) {
+    setPageSize(nextPageSize);
+    storeTablePageSize(PAGE_SIZE_STORAGE_KEY, nextPageSize);
+    setPage(1);
   }
 
   return (
@@ -170,8 +178,8 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
         <TableWrap
           footer={
             <>
-              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}건` : "0건 표시"} · 오늘 예정 {todayMovements.length}건</span>
-              <TablePagination page={currentPage} totalItems={rows.length} pageSize={PAGE_SIZE} label="입출고 목록" onChange={goToPage} />
+              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + pageSize, rows.length)} / ${rows.length}건` : "0건 표시"} · 오늘 예정 {todayMovements.length}건</span>
+              <TablePagination page={currentPage} totalItems={rows.length} pageSize={pageSize} label="입출고 목록" onChange={goToPage} pageSizeOptions={TABLE_PAGE_SIZE_OPTIONS} onPageSizeChange={changePageSize} />
             </>
           }
         >
