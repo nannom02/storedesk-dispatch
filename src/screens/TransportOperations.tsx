@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Check, History, Search, Send, Truck } from "lucide-react";
+import { Check, History, Pencil, Plus, Search, Send, Truck } from "lucide-react";
 
-import { DescGrid, NoticeBar, PageHead, Panel, PanelRow, StateText, TableWrap } from "../components/ui";
+import { DescGrid, Modal, NoticeBar, PageHead, Panel, PanelRow, StateText, TableWrap } from "../components/ui";
 import { formatWon } from "../data/utils";
 import { useStore } from "../store";
 
@@ -13,6 +13,15 @@ const INSTRUCTION_FIELDS = [
   "수취인·연락처",
   "엘리베이터 여부",
 ];
+
+const NEW_VENDOR = {
+  name: "한빛로지스",
+  manager: "정현수",
+  phone: "010-7721-4085",
+  businessNo: "212-86-51042",
+  serviceAreas: "서울, 경기 남부",
+  note: "평일 입출고와 리프트 동시 배차 가능",
+};
 
 export default function TransportOperations() {
   const { state, derived, actions } = useStore();
@@ -27,6 +36,10 @@ export default function TransportOperations() {
   const [fields, setFields] = useState<string[]>(INSTRUCTION_FIELDS);
   const [vendorSourceFeedback, setVendorSourceFeedback] = useState("");
   const [costFeedback, setCostFeedback] = useState("");
+  const [vendorEditorOpen, setVendorEditorOpen] = useState(false);
+  const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
+  const [vendorForm, setVendorForm] = useState(NEW_VENDOR);
+  const [vendorFeedback, setVendorFeedback] = useState("");
 
   const contract = movement ? derived.contractById.get(movement.contractId) : undefined;
   const customer = contract ? derived.customerOf(contract) : undefined;
@@ -34,6 +47,7 @@ export default function TransportOperations() {
   const vendor = state.transportVendors.find((item) => item.id === vendorId);
   const histories = state.assignmentHistory.filter((item) => item.movementId === movement?.id);
   const instructions = state.workInstructions.filter((item) => item.movementId === movement?.id);
+  const vendorHistory = vendor?.serviceHistory ?? [];
   const vendors = useMemo(() => {
     const term = keyword.trim();
     if (!term) return state.transportVendors;
@@ -52,12 +66,56 @@ export default function TransportOperations() {
     setCostFeedback("");
   }
 
+  function openNewVendor() {
+    setEditingVendorId(null);
+    setVendorForm(NEW_VENDOR);
+    setVendorEditorOpen(true);
+  }
+
+  function openVendorEdit(targetId: string) {
+    const target = state.transportVendors.find((item) => item.id === targetId);
+    if (!target) return;
+    setEditingVendorId(targetId);
+    setVendorForm({
+      name: target.name,
+      manager: target.manager,
+      phone: target.phone,
+      businessNo: target.businessNo,
+      serviceAreas: target.serviceAreas.join(", "),
+      note: target.note,
+    });
+    setVendorEditorOpen(true);
+  }
+
+  function saveVendor() {
+    const payload = {
+      name: vendorForm.name.trim(),
+      manager: vendorForm.manager.trim(),
+      phone: vendorForm.phone.trim(),
+      businessNo: vendorForm.businessNo.trim(),
+      serviceAreas: vendorForm.serviceAreas.split(",").map((area) => area.trim()).filter(Boolean),
+      note: vendorForm.note.trim(),
+    };
+    if (!payload.name || !payload.manager || !payload.phone || !payload.businessNo || payload.serviceAreas.length === 0) return;
+    if (editingVendorId) {
+      actions.updateTransportVendor(editingVendorId, payload);
+      setVendorId(editingVendorId);
+      setVendorFeedback(`${payload.name} 기준정보를 수정해 배정 화면과 기존 건의 업체명에 반영했습니다.`);
+    } else {
+      const createdId = actions.createTransportVendor(payload);
+      setVendorId(createdId);
+      setVendorFeedback(`${payload.name}을 신규 운송업체로 등록했습니다.`);
+    }
+    setVendorEditorOpen(false);
+  }
+
   return (
     <div className="screen">
       <PageHead
         kicker="운영 · 재공고 추가 범위"
         title="운송 배정·작업지시"
         lead="외부 운송업체를 입출고 건에 배정하고, 고객·상담·희망 시각을 운영팀·창고팀·운송업체에 한 번에 전달합니다. 운송업체 화면은 로그인 없는 읽기 전용입니다."
+        actions={<button type="button" className="ghost-button" onClick={openNewVendor}><Plus size={16} aria-hidden="true" /> 신규 운송업체 등록</button>}
       />
 
       <NoticeBar variant="review" title="이번 공고에서 확정된 변경 범위">
@@ -100,6 +158,7 @@ export default function TransportOperations() {
                   <th scope="col">담당자·연락처</th>
                   <th scope="col">서비스 지역</th>
                   <th scope="col">수행 실적</th>
+                  <th scope="col" data-priority="low">운영 메모</th>
                   <th scope="col" aria-label="선택" />
                 </tr>
               </thead>
@@ -110,12 +169,19 @@ export default function TransportOperations() {
                     <td data-label="담당자·연락처">{item.manager}<span className="cell-sub">{item.phone}</span></td>
                     <td data-label="서비스 지역">{item.serviceAreas.join(" · ")}</td>
                     <td data-label="수행 실적">{item.completedJobs}건<span className="cell-sub">정시 {item.onTimeRate}%</span></td>
-                    <td data-label="선택"><button type="button" className="quiet-button" onClick={() => setVendorId(item.id)}>{item.id === vendorId ? "선택됨" : "선택"}</button></td>
+                    <td data-label="운영 메모" data-priority="low">{item.note}</td>
+                    <td data-label="선택">
+                      <div className="row-actions">
+                        <button type="button" className="quiet-button" aria-label={`${item.name} 선택`} onClick={() => setVendorId(item.id)}>{item.id === vendorId ? "선택됨" : "선택"}</button>
+                        <button type="button" className="quiet-button" aria-label={`${item.name} 수정`} onClick={() => openVendorEdit(item.id)}><Pencil size={14} aria-hidden="true" /> 수정</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </TableWrap>
+          {vendorFeedback ? <p role="status" aria-label="운송업체 기준정보 처리 결과" className="panel-note">{vendorFeedback}</p> : null}
         </Panel>
 
         <Panel
@@ -157,11 +223,38 @@ export default function TransportOperations() {
         </Panel>
       </PanelRow>
 
+      <Panel
+        title="업체별 수행 이력"
+        description={vendor ? `${vendor.name} · 누적 ${vendor.completedJobs}건 · 정시 완료율 ${vendor.onTimeRate}%` : "운송업체를 선택하면 건별 운송·리프트 내역을 확인할 수 있습니다."}
+      >
+        <div role="status" aria-label="업체별 수행 이력">
+          <TableWrap footer={<><span>{vendorHistory.length}건 표시</span><span>운송비·리프트 비용 건별 원장</span></>}>
+            <table className="data-table">
+              <thead><tr><th scope="col">작업</th><th scope="col">구분</th><th scope="col">완료 시각</th><th scope="col">운송 구간</th><th scope="col" className="numeric">운송비</th><th scope="col" className="numeric">리프트</th><th scope="col">결과</th></tr></thead>
+              <tbody>
+                {vendorHistory.map((record) => (
+                  <tr key={record.id}>
+                    <td data-label="작업"><strong>{record.movementId}</strong></td>
+                    <td data-label="구분">{record.kind}</td>
+                    <td data-label="완료 시각" className="date-cell">{record.completedAt}</td>
+                    <td data-label="운송 구간">{record.route}</td>
+                    <td data-label="운송비" className="numeric amount tabular">{formatWon(record.transportCost)}</td>
+                    <td data-label="리프트" className="numeric amount tabular">{formatWon(record.liftCost)}</td>
+                    <td data-label="결과"><StateText tone={record.result === "정시 완료" ? "ok" : "warn"}>{record.result}</StateText></td>
+                  </tr>
+                ))}
+                {vendorHistory.length === 0 ? <tr><td colSpan={7}>아직 완료된 운송 이력이 없습니다.</td></tr> : null}
+              </tbody>
+            </table>
+          </TableWrap>
+        </div>
+      </Panel>
+
       <PanelRow columns="5-7">
-        <Panel title="비용 기록" description="운송·사다리차 비용만 기록하며 정산·매입 세금계산서 기능은 후속 범위입니다.">
+        <Panel title="비용 기록" description="운송·리프트 비용만 기록하며 정산·매입 세금계산서 기능은 후속 범위입니다.">
           <div className="form-grid" data-columns="2">
             <label className="field"><span className="field-label">운송비</span><input inputMode="numeric" value={transportCost} onChange={(event) => setTransportCost(event.target.value.replace(/\D/g, ""))} /></label>
-            <label className="field"><span className="field-label">사다리차 비용</span><input inputMode="numeric" value={ladderCost} onChange={(event) => setLadderCost(event.target.value.replace(/\D/g, ""))} /></label>
+            <label className="field"><span className="field-label">리프트 비용</span><input inputMode="numeric" value={ladderCost} onChange={(event) => setLadderCost(event.target.value.replace(/\D/g, ""))} /></label>
           </div>
           <button
             type="button"
@@ -175,7 +268,7 @@ export default function TransportOperations() {
           >비용 저장</button>
           <div role="status" aria-label="작업지시 요약" className="transport-cost-summary">
             <span>운송비 {formatWon(Number(transportCost) || 0)}</span>
-            <span>사다리차 {formatWon(Number(ladderCost) || 0)}</span>
+            <span>리프트 {formatWon(Number(ladderCost) || 0)}</span>
             <strong>합계 {formatWon((Number(transportCost) || 0) + (Number(ladderCost) || 0))}</strong>
             {costFeedback ? <span className="support-text">{costFeedback}</span> : null}
           </div>
@@ -219,6 +312,31 @@ export default function TransportOperations() {
           </div>
         </Panel>
       </PanelRow>
+
+      {vendorEditorOpen ? (
+        <Modal
+          title={editingVendorId ? "운송업체 기준정보 수정" : "신규 운송업체 등록"}
+          description="업체명·담당자·연락처·사업자번호·서비스 지역·운영 메모를 기준정보로 저장합니다."
+          onClose={() => setVendorEditorOpen(false)}
+          actions={
+            <>
+              <button type="button" className="ghost-button" onClick={() => setVendorEditorOpen(false)}>취소</button>
+              <button type="button" className="primary-button" onClick={saveVendor}>
+                {editingVendorId ? "운송업체 수정 저장" : "운송업체 등록"}
+              </button>
+            </>
+          }
+        >
+          <div className="field-grid">
+            <label className="field"><span className="field-label">업체명</span><input value={vendorForm.name} onChange={(event) => setVendorForm((current) => ({ ...current, name: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">담당자</span><input value={vendorForm.manager} onChange={(event) => setVendorForm((current) => ({ ...current, manager: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">연락처</span><input value={vendorForm.phone} onChange={(event) => setVendorForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">사업자번호</span><input value={vendorForm.businessNo} onChange={(event) => setVendorForm((current) => ({ ...current, businessNo: event.target.value }))} /></label>
+            <label className="field" data-span="full"><span className="field-label">서비스 지역</span><input value={vendorForm.serviceAreas} onChange={(event) => setVendorForm((current) => ({ ...current, serviceAreas: event.target.value }))} /><span className="support-text" data-density="support">쉼표로 지역을 구분합니다.</span></label>
+            <label className="field" data-span="full"><span className="field-label">운영 메모</span><textarea value={vendorForm.note} onChange={(event) => setVendorForm((current) => ({ ...current, note: event.target.value }))} /></label>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

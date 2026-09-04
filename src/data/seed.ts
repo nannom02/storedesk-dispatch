@@ -13,6 +13,7 @@ import type {
   Notice,
   NotificationRecord,
   PayerAlias,
+  StaffProfile,
   StoredDocument,
   TransportAssignmentHistory,
   TransportVendor,
@@ -23,6 +24,8 @@ import type {
 export const TODAY = "2026-09-04";
 export const OPERATOR = { name: "윤서진", role: "관리자", team: "회계·정산" } as const;
 export const TOTAL_CUSTOMERS = 1482;
+
+export const acquisitionChannels = ["웹사이트", "전화", "중개 플랫폼", "검색 광고", "카카오", "기타"];
 
 export const INBOUND_STEPS = ["상담진행중", "예약완료", "운송자매칭완료", "입고완료"];
 export const OUTBOUND_STEPS = ["출고예약", "운송자매칭완료", "출고완료"];
@@ -940,9 +943,14 @@ export const transportVendors: TransportVendor[] = [
     phone: "010-4821-7300",
     businessNo: "214-88-10293",
     serviceAreas: ["서울", "경기 동부"],
-    note: "입고 운송 경험이 많고 사다리차 동시 배차 가능",
+    note: "입고 운송 경험이 많고 리프트 동시 배차 가능",
     completedJobs: 128,
     onTimeRate: 96,
+    serviceHistory: [
+      { id: "VH-001", movementId: "MV-2608-114", kind: "입고", completedAt: "2026-08-28 16:20", route: "성남 분당구 → 형동 본사 실내창고", transportCost: 180000, liftCost: 90000, result: "정시 완료" },
+      { id: "VH-002", movementId: "MV-2608-097", kind: "출고", completedAt: "2026-08-19 11:35", route: "형성 보관창고 → 서울 강서구", transportCost: 210000, liftCost: 0, result: "정시 완료" },
+      { id: "VH-003", movementId: "MV-2608-083", kind: "입고", completedAt: "2026-08-12 15:42", route: "서울 송파구 → 형동 송파지점", transportCost: 160000, liftCost: 70000, result: "지연 완료" },
+    ],
   },
   {
     id: "TV-002",
@@ -954,6 +962,10 @@ export const transportVendors: TransportVendor[] = [
     note: "주말 배차 가능, 프리미엄 보관 고객 우선 협력사",
     completedJobs: 84,
     onTimeRate: 98,
+    serviceHistory: [
+      { id: "VH-004", movementId: "MV-2608-109", kind: "출고", completedAt: "2026-08-25 10:18", route: "형동 송파지점 → 인천 연수구", transportCost: 240000, liftCost: 110000, result: "정시 완료" },
+      { id: "VH-005", movementId: "MV-2608-072", kind: "입고", completedAt: "2026-08-05 13:08", route: "경기 광주시 → 형성 보관창고", transportCost: 150000, liftCost: 0, result: "정시 완료" },
+    ],
   },
   {
     id: "TV-003",
@@ -965,6 +977,10 @@ export const transportVendors: TransportVendor[] = [
     note: "대형 화물·장거리 운송 대응",
     completedJobs: 61,
     onTimeRate: 93,
+    serviceHistory: [
+      { id: "VH-006", movementId: "MV-2608-088", kind: "입고", completedAt: "2026-08-14 17:12", route: "강원 원주시 → 형성 보관창고", transportCost: 310000, liftCost: 0, result: "정시 완료" },
+      { id: "VH-007", movementId: "MV-2607-154", kind: "출고", completedAt: "2026-07-29 16:48", route: "형성 보관창고 → 경기 이천시", transportCost: 230000, liftCost: 80000, result: "지연 완료" },
+    ],
   },
 ];
 
@@ -1426,6 +1442,49 @@ export const auditEntries: AuditEntry[] = [
     action: "입고 반입 완료 처리",
     target: "MV-2609-023 · B-05",
     category: "입출고",
+  },
+];
+
+export const staffProfiles: StaffProfile[] = [
+  {
+    id: "ST-001",
+    name: "윤서진",
+    role: "최고관리자",
+    profile: "운영·정산 전체",
+    status: "활성",
+    issuedAt: "2026-09-04 08:20",
+    issuedBy: "최고관리자",
+    issuanceHistory: ["2026-09-04 08:20 · 최고관리자 프로필 발급"],
+  },
+  {
+    id: "ST-002",
+    name: "김도현",
+    role: "관리자",
+    profile: "고객·계약·알림",
+    status: "활성",
+    issuedAt: "2026-09-02 09:10",
+    issuedBy: "윤서진",
+    issuanceHistory: ["2026-09-02 09:10 · 고객·계약·알림 프로필 갱신", "2026-02-03 09:00 · 관리자 프로필 발급"],
+  },
+  {
+    id: "ST-003",
+    name: "남기훈",
+    role: "창고 현장 담당자",
+    profile: "입출고·창고 조회",
+    status: "활성",
+    issuedAt: "2026-08-28 08:42",
+    issuedBy: "윤서진",
+    issuanceHistory: ["2026-08-28 08:42 · 현장 모바일 접근 프로필 발급"],
+  },
+  {
+    id: "ST-004",
+    name: "퇴사 직원",
+    role: "관리자",
+    profile: "접근 없음",
+    status: "회수",
+    issuedAt: "2026-08-15 18:00",
+    issuedBy: "윤서진",
+    issuanceHistory: ["2026-08-15 18:00 · 접근 프로필 회수"],
   },
 ];
 

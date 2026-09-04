@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Link2, PauseCircle, Save, Sigma } from "lucide-react";
+import { ArrowRight, CheckCircle2, Link2, PauseCircle, Save, Sigma } from "lucide-react";
 
 import {
   DescGrid,
@@ -19,6 +19,7 @@ export default function UnmatchedReview({ onNavigate }: { onNavigate: (screenId:
   const { state, derived, actions } = useStore();
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
   const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [manualReason, setManualReason] = useState("입금자명과 대표자명이 일치하고 월 이용료와 입금액이 같아 해당 계약으로 연결 요청");
 
   const reviewable = useMemo(
     () => state.txs.filter((tx) => tx.status === "검토 필요" || tx.status === "보류"),
@@ -40,9 +41,10 @@ export default function UnmatchedReview({ onNavigate }: { onNavigate: (screenId:
         ? current
         : (selected.contractId ?? selected.candidateContractIds[0] ?? null),
     );
+    setManualReason(selected.manualReason ?? "입금자명과 대표자명이 일치하고 월 이용료와 입금액이 같아 해당 계약으로 연결 요청");
   }, [selected]);
 
-  const targetContractId = selected?.contractId ?? candidateId;
+  const targetContractId = selected?.contractId ?? selected?.pendingContractId ?? candidateId;
   const targetContract = targetContractId ? derived.contractById.get(targetContractId) : undefined;
   const targetCustomer = targetContract ? derived.customerOf(targetContract) : undefined;
 
@@ -61,10 +63,12 @@ export default function UnmatchedReview({ onNavigate }: { onNavigate: (screenId:
     ? state.aliases.some((alias) => alias.payerName === selected.payerName)
     : false;
   const resolved = selected ? selected.status !== "검토 필요" : false;
+  const approvalPending = selected?.approvalStatus === "승인 대기";
   const recommendedAction = (() => {
     if (!selected) return null;
     if (!resolved && splitPartners.length > 1 && targetContractId) return "merge";
-    if (!resolved && splitPartners.length <= 1 && targetContractId) return "link";
+    if (!resolved && splitPartners.length <= 1 && targetContractId && approvalPending) return "approve";
+    if (!resolved && splitPartners.length <= 1 && targetContractId) return "request";
     if (resolved && selected.contractId && !aliasSaved && targetCustomer) return "save-alias";
     return null;
   })();
@@ -276,16 +280,42 @@ export default function UnmatchedReview({ onNavigate }: { onNavigate: (screenId:
 
               <div className="stack" data-gap="tight">
                 <strong className="card-title">처리</strong>
+                {splitPartners.length <= 1 ? (
+                  <label className="field">
+                    <span className="field-label">수동 매칭 사유</span>
+                    <textarea value={manualReason} disabled={approvalPending || resolved} onChange={(event) => setManualReason(event.target.value)} />
+                    <span className="support-text" data-density="support">승인자는 후보 계약·입금액·최근 입금 이력과 이 사유를 함께 확인합니다.</span>
+                  </label>
+                ) : null}
+                {selected.approvalStatus ? (
+                  <div role="status" aria-label="수동 연결 승인 상태" className="notice notice-info">
+                    <span className="notice-icon" aria-hidden="true"><CheckCircle2 size={18} /></span>
+                    <div className="notice-body">
+                      <strong className="notice-title">{selected.approvalStatus}</strong>
+                      <p>{selected.manualReason} · 요청 {selected.approvalRequestedBy} {selected.approvalRequestedAt}{selected.approvedBy ? ` · 승인 ${selected.approvedBy} ${selected.approvedAt}` : ""}</p>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="inline">
                   <button
                     type="button"
                     className="primary-button unmatched-business-action"
-                    data-guide-active={recommendedAction === "link" ? "true" : undefined}
-                    disabled={resolved || !targetContractId || splitPartners.length > 1}
-                    onClick={() => targetContractId && actions.linkTx(selected.id, targetContractId)}
+                    data-guide-active={recommendedAction === "request" ? "true" : undefined}
+                    disabled={resolved || approvalPending || !targetContractId || !manualReason.trim() || splitPartners.length > 1}
+                    onClick={() => targetContractId && actions.requestManualMatchApproval(selected.id, targetContractId, manualReason)}
                   >
                     <Link2 size={16} aria-hidden="true" />
-                    이 계약으로 연결
+                    수동 연결 승인 요청
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button unmatched-business-action"
+                    data-guide-active={recommendedAction === "approve" ? "true" : undefined}
+                    disabled={!approvalPending || resolved}
+                    onClick={() => actions.approveManualMatch(selected.id)}
+                  >
+                    <CheckCircle2 size={16} aria-hidden="true" />
+                    수동 연결 승인
                   </button>
                   <button
                     type="button"
@@ -318,7 +348,7 @@ export default function UnmatchedReview({ onNavigate }: { onNavigate: (screenId:
                   <button
                     type="button"
                     className="danger-button"
-                    disabled={selected.status !== "검토 필요"}
+                    disabled={selected.status !== "검토 필요" || approvalPending}
                     onClick={() => actions.holdTx(selected.id)}
                   >
                     <PauseCircle size={16} aria-hidden="true" />
@@ -348,7 +378,7 @@ export default function UnmatchedReview({ onNavigate }: { onNavigate: (screenId:
                 <div role="status" aria-label="처리 결과">
                   {selected.status === "검토 필요" ? (
                     <p className="panel-note">
-                      아직 판정하지 않았습니다. 연결·합산·보류 중 하나를 실행하면 계약과 이력에 반영됩니다.
+                      아직 판정하지 않았습니다. 수동 연결은 사유를 남겨 승인을 받은 뒤 계약과 입금 이력에 반영됩니다.
                     </p>
                   ) : (
                     <DescGrid

@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Lock, ShieldCheck } from "lucide-react";
+import { Lock, Plus, ShieldCheck } from "lucide-react";
 
 import {
   ChipGroup,
   DescGrid,
+  Modal,
   PageHead,
   Panel,
   PanelRow,
@@ -11,6 +12,7 @@ import {
   TableWrap,
 } from "../components/ui";
 import { useStore } from "../store";
+import type { StaffProfile } from "../data/types";
 
 const FILTERS = [
   { id: "all", label: "전체" },
@@ -33,6 +35,9 @@ const PERMISSIONS = [
 export default function AuditLog() {
   const { state, actions } = useStore();
   const [filter, setFilter] = useState("all");
+  const [staffOpen, setStaffOpen] = useState(false);
+  const [staffResult, setStaffResult] = useState("");
+  const [staffForm, setStaffForm] = useState({ name: "박서연", role: "관리자" as StaffProfile["role"], profile: "고객·계약·알림" });
 
   const rows = useMemo(
     () =>
@@ -48,20 +53,17 @@ export default function AuditLog() {
         kicker="관리 · 권한 등급과 처리 이력"
         title="권한·활동 로그"
         lead="직원을 등록해 역할별 접근 프로필을 발급하고, 누가 언제 어떤 계약을 바꿨는지 모두 남깁니다. 최고관리자는 관리자별 처리 이력을 확인합니다."
+        actions={<button type="button" className="primary-button" onClick={() => setStaffOpen(true)}><Plus size={16} aria-hidden="true" /> 직원·프로필 등록</button>}
       />
 
       <Panel title="직원·접근 프로필" description="직원 등록, 역할 지정, 접근 프로필 발급 이력을 한 원장으로 관리합니다.">
-        <TableWrap footer={<><span>직원 4명 · 활성 3명</span><span>최근 프로필 발급 2026-09-04 08:20</span></>}>
+        {staffResult ? <p role="status" aria-label="직원 프로필 발급 결과" className="panel-note">{staffResult}</p> : null}
+        <TableWrap footer={<><span>직원 {state.staffProfiles.length}명 · 활성 {state.staffProfiles.filter((staff) => staff.status === "활성").length}명</span><span>최근 프로필 발급 {state.staffProfiles[0]?.issuedAt ?? "-"}</span></>}>
           <table className="data-table">
             <thead><tr><th scope="col">직원</th><th scope="col">역할</th><th scope="col">접근 프로필</th><th scope="col">발급 이력</th><th scope="col">상태</th></tr></thead>
             <tbody>
-              {[
-                ["윤서진", "최고관리자", "운영·정산 전체", "2026-09-04 08:20 · 최고관리자 발급", "활성"],
-                ["김도현", "관리자", "고객·계약·알림", "2026-09-02 09:10 · 프로필 갱신", "활성"],
-                ["남기훈", "창고 현장 담당자", "입출고·창고 조회", "2026-08-28 08:42 · 모바일 접근 발급", "활성"],
-                ["퇴사 직원", "관리자", "접근 없음", "2026-08-15 18:00 · 프로필 회수", "회수"],
-              ].map(([name, role, profile, history, status]) => (
-                <tr key={name}><td data-label="직원"><strong>{name}</strong></td><td data-label="역할">{role}</td><td data-label="접근 프로필">{profile}</td><td data-label="발급 이력">{history}</td><td data-label="상태"><StateText tone={status === "활성" ? "ok" : "neutral"}>{status}</StateText></td></tr>
+              {state.staffProfiles.map((staff) => (
+                <tr key={staff.id}><td data-label="직원"><strong>{staff.name}</strong><span className="cell-sub" data-density="support">{staff.id}</span></td><td data-label="역할">{staff.role}</td><td data-label="접근 프로필">{staff.profile}</td><td data-label="발급 이력">{staff.issuanceHistory.join(" · ")}<span className="cell-sub" data-density="support">발급자 {staff.issuedBy}</span></td><td data-label="상태"><StateText tone={staff.status === "활성" ? "ok" : "neutral"}>{staff.status}</StateText></td></tr>
               ))}
             </tbody>
           </table>
@@ -201,6 +203,35 @@ export default function AuditLog() {
           />
         </Panel>
       </PanelRow>
+
+      {staffOpen ? (
+        <Modal
+          title="직원 등록·접근 프로필 발급"
+          description="직원 등록과 역할 지정, 접근 프로필 발급을 한 번에 처리하고 발급 이력을 남깁니다."
+          onClose={() => setStaffOpen(false)}
+          actions={
+            <>
+              <button type="button" className="ghost-button" onClick={() => setStaffOpen(false)}>취소</button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!staffForm.name.trim() || !staffForm.profile.trim()}
+                onClick={() => {
+                  const staffId = actions.registerStaffProfile({ name: staffForm.name.trim(), role: staffForm.role, profile: staffForm.profile.trim() });
+                  setStaffResult(`${staffId} · ${staffForm.name.trim()} 직원을 등록하고 ${staffForm.profile.trim()} 프로필을 발급했습니다.`);
+                  setStaffOpen(false);
+                }}
+              >직원 등록·프로필 발급</button>
+            </>
+          }
+        >
+          <div className="field-grid">
+            <label className="field"><span className="field-label">직원명</span><input value={staffForm.name} onChange={(event) => setStaffForm((current) => ({ ...current, name: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">역할</span><select value={staffForm.role} onChange={(event) => setStaffForm((current) => ({ ...current, role: event.target.value as StaffProfile["role"] }))}><option value="최고관리자">최고관리자</option><option value="관리자">관리자</option><option value="창고 현장 담당자">창고 현장 담당자</option></select></label>
+            <label className="field" data-span="full"><span className="field-label">접근 프로필</span><select value={staffForm.profile} onChange={(event) => setStaffForm((current) => ({ ...current, profile: event.target.value }))}><option value="운영·정산 전체">운영·정산 전체</option><option value="고객·계약·알림">고객·계약·알림</option><option value="입출고·창고 조회">입출고·창고 조회</option></select></label>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

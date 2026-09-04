@@ -74,6 +74,16 @@
       "expected": { "role": "status", "name": "고객 상세" }
     },
     {
+      "requirementId": "INT-CUST-CHANNEL",
+      "screen": "고객·상담",
+      "entry": [
+        { "role": "button", "name": "고객·상담" },
+        { "role": "button", "name": "유입 채널 관리" }
+      ],
+      "control": { "role": "button", "name": "유입 채널 추가" },
+      "expected": { "role": "status", "name": "유입 채널 등록 결과" }
+    },
+    {
       "requirementId": "INT-CT-FILTER",
       "screen": "계약",
       "entry": [{ "role": "button", "name": "계약" }],
@@ -165,6 +175,13 @@
       "expected": { "role": "status", "name": "창고번호 조회 결과" }
     },
     {
+      "requirementId": "INT-MV-STATUS",
+      "screen": "입출고 관리",
+      "entry": [{ "role": "button", "name": "입출고 관리" }],
+      "control": { "role": "button", "name": "입고완료" },
+      "expected": { "role": "status", "name": "입출고 목록 요약" }
+    },
+    {
       "requirementId": "INT-CAL-DATE",
       "screen": "입출고 일정 캘린더",
       "entry": [{ "role": "button", "name": "입출고 일정 캘린더" }],
@@ -251,7 +268,7 @@
       "expected": { "role": "status", "name": "판정 근거" }
     },
     {
-      "requirementId": "INT-UM-LINK",
+      "requirementId": "INT-UM-REQUEST",
       "screen": "미매칭 검토",
       "entry": [
         { "role": "button", "name": "입금 계약 자동 대조" },
@@ -260,7 +277,21 @@
         { "role": "button", "name": "미매칭 검토" },
         { "role": "button", "name": "TX-0905 검토 열기" }
       ],
-      "control": { "role": "button", "name": "이 계약으로 연결" },
+      "control": { "role": "button", "name": "수동 연결 승인 요청" },
+      "expected": { "role": "status", "name": "수동 연결 승인 상태" }
+    },
+    {
+      "requirementId": "INT-UM-APPROVE",
+      "screen": "미매칭 검토",
+      "entry": [
+        { "role": "button", "name": "입금 계약 자동 대조" },
+        { "role": "button", "name": "엑셀 파일 가져오기" },
+        { "role": "button", "name": "검증 완료 후 대조 실행" },
+        { "role": "button", "name": "미매칭 검토" },
+        { "role": "button", "name": "TX-0905 검토 열기" },
+        { "role": "button", "name": "수동 연결 승인 요청" }
+      ],
+      "control": { "role": "button", "name": "수동 연결 승인" },
       "expected": { "role": "status", "name": "처리 결과" }
     },
     {
@@ -272,7 +303,8 @@
         { "role": "button", "name": "검증 완료 후 대조 실행" },
         { "role": "button", "name": "미매칭 검토" },
         { "role": "button", "name": "TX-0905 검토 열기" },
-        { "role": "button", "name": "이 계약으로 연결" }
+        { "role": "button", "name": "수동 연결 승인 요청" },
+        { "role": "button", "name": "수동 연결 승인" }
       ],
       "control": { "role": "button", "name": "등록 입금자명으로 저장" },
       "expected": { "role": "status", "name": "등록 입금자명 원장" }
@@ -468,6 +500,16 @@
       "expected": { "role": "status", "name": "권한별 기능 제어" }
     },
     {
+      "requirementId": "INT-LOG-STAFF",
+      "screen": "권한·활동 로그",
+      "entry": [
+        { "role": "button", "name": "권한·활동 로그" },
+        { "role": "button", "name": "직원·프로필 등록" }
+      ],
+      "control": { "role": "button", "name": "직원 등록·프로필 발급" },
+      "expected": { "role": "status", "name": "직원 프로필 발급 결과" }
+    },
+    {
       "requirementId": "INT-SET-RULE",
       "screen": "환경 설정",
       "entry": [{ "role": "button", "name": "환경 설정" }],
@@ -487,6 +529,33 @@
       "entry": [{ "role": "button", "name": "운송 배정·작업지시" }],
       "control": { "role": "button", "name": "기존 입고 운송사 불러오기" },
       "expected": { "role": "status", "name": "배정 패널" }
+    },
+    {
+      "requirementId": "INT-TR-CREATE",
+      "screen": "운송 배정·작업지시",
+      "entry": [
+        { "role": "button", "name": "운송 배정·작업지시" },
+        { "role": "button", "name": "신규 운송업체 등록" }
+      ],
+      "control": { "role": "button", "name": "운송업체 등록" },
+      "expected": { "role": "status", "name": "운송업체 기준정보 처리 결과" }
+    },
+    {
+      "requirementId": "INT-TR-EDIT",
+      "screen": "운송 배정·작업지시",
+      "entry": [
+        { "role": "button", "name": "운송 배정·작업지시" },
+        { "role": "button", "name": "한결운송 수정" }
+      ],
+      "control": { "role": "button", "name": "운송업체 수정 저장" },
+      "expected": { "role": "status", "name": "운송업체 기준정보 처리 결과" }
+    },
+    {
+      "requirementId": "INT-TR-HISTORY",
+      "screen": "운송 배정·작업지시",
+      "entry": [{ "role": "button", "name": "운송 배정·작업지시" }],
+      "control": { "role": "button", "name": "새길로지스 선택" },
+      "expected": { "role": "status", "name": "업체별 수행 이력" }
     },
     {
       "requirementId": "INT-TR-ASSIGN",

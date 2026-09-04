@@ -18,11 +18,15 @@ import { readNavigationContext } from "../navigation";
 import type { Navigate } from "../navigation";
 import { useStore } from "../store";
 
-const FILTERS = [
-  { id: "all", label: "전체" },
+const KIND_FILTERS = [
+  { id: "all", label: "입출고 전체" },
   { id: "입고", label: "입고" },
   { id: "출고", label: "출고" },
-  { id: "todo", label: "진행 중" },
+];
+
+const STATUS_FILTERS = [
+  { id: "all", label: "전체 상태" },
+  ...Array.from(new Set([...INBOUND_STEPS, ...OUTBOUND_STEPS])).map((step) => ({ id: step, label: step })),
 ];
 
 const PHONE_TABS = [
@@ -74,7 +78,8 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
       }
     : undefined;
   const allMovements = snapshotMovement ? [snapshotMovement, ...state.movements] : state.movements;
-  const [filter, setFilter] = useState("all");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(
     focusedMovements[0]?.id ?? snapshotMovement?.id ?? "MV-2609-021",
   );
@@ -90,9 +95,9 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
     ) {
       return false;
     }
-    if (filter === "all") return true;
-    if (filter === "todo") return !movement.done;
-    return movement.kind === filter;
+    if (kindFilter !== "all" && movement.kind !== kindFilter) return false;
+    const stepLabels = movement.kind === "출고" ? OUTBOUND_STEPS : INBOUND_STEPS;
+    return statusFilter === "all" || stepLabels[movement.stepIndex] === statusFilter;
   });
 
   const selected = allMovements.find((movement) => movement.id === selectedId);
@@ -134,7 +139,8 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
           </div>
         ) : null}
         <div className="filter-bar">
-          <ChipGroup label="입출고 구분" options={FILTERS} value={filter} onChange={setFilter} />
+          <ChipGroup label="입출고 구분" options={KIND_FILTERS} value={kindFilter} onChange={setKindFilter} />
+          <ChipGroup label="진행 상태" options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} />
           <span className="panel-note" role="status" aria-label="입출고 목록 요약">
             표시 {rows.length}건 · 입고 {rows.filter((m) => m.kind === "입고").length} / 출고{" "}
             {rows.filter((m) => m.kind === "출고").length} · 미완료{" "}

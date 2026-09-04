@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BellOff, MessageSquarePlus, Paperclip, Search, UserPlus } from "lucide-react";
+import { BellOff, MessageSquarePlus, Paperclip, Plus, Search, Settings2, UserPlus } from "lucide-react";
 
 import {
   ChipGroup,
@@ -48,6 +48,9 @@ export default function Customers() {
   );
   const [consultChannel, setConsultChannel] = useState<"전화" | "방문" | "챗봇" | "문자">("전화");
   const [payerName, setPayerName] = useState("김성호");
+  const [channelOpen, setChannelOpen] = useState(false);
+  const [channelName, setChannelName] = useState("지역 제휴 문의");
+  const [channelResult, setChannelResult] = useState("");
 
   const rows = useMemo(() => {
     const term = keyword.trim();
@@ -124,10 +127,16 @@ export default function Customers() {
         title="고객·상담"
         lead="이름과 연락처만으로 빠르게 고객을 등록하고, 유입 경로·상담일지·복수 입금자명·수신 제외를 한 화면에서 관리합니다."
         actions={
-          <button type="button" className="primary-button" onClick={openCustomerForm}>
-            <UserPlus size={16} aria-hidden="true" />
-            신규 고객 등록
-          </button>
+          <>
+            <button type="button" className="ghost-button" onClick={() => setChannelOpen(true)}>
+              <Settings2 size={16} aria-hidden="true" />
+              유입 채널 관리
+            </button>
+            <button type="button" className="primary-button" onClick={openCustomerForm}>
+              <UserPlus size={16} aria-hidden="true" />
+              신규 고객 등록
+            </button>
+          </>
         }
       />
 
@@ -422,12 +431,7 @@ export default function Customers() {
                 value={newCustomer.acquisitionSource}
                 onChange={(event) => setNewCustomer((current) => ({ ...current, acquisitionSource: event.target.value as AcquisitionSource }))}
               >
-                <option value="웹사이트">웹사이트</option>
-                <option value="전화">전화</option>
-                <option value="중개 플랫폼">중개 플랫폼</option>
-                <option value="검색 광고">검색 광고</option>
-                <option value="카카오">카카오</option>
-                <option value="기타">기타</option>
+                {state.acquisitionChannels.map((channel) => <option key={channel} value={channel}>{channel}</option>)}
               </select>
             </label>
             <label className="field">
@@ -464,6 +468,44 @@ export default function Customers() {
               {customerError}
             </p>
           ) : null}
+        </Modal>
+      ) : null}
+
+      {channelOpen ? (
+        <Modal
+          title="유입 채널 관리"
+          description="고객을 처음 알게 된 경로를 기준정보로 추가하면 신규 고객 등록에서 바로 선택할 수 있습니다."
+          onClose={() => setChannelOpen(false)}
+          actions={
+            <button type="button" className="ghost-button" onClick={() => setChannelOpen(false)}>
+              닫기
+            </button>
+          }
+        >
+          <div className="field-grid" data-single="true">
+            <label className="field">
+              <span className="field-label">새 유입 경로</span>
+              <input value={channelName} onChange={(event) => setChannelName(event.target.value)} />
+            </label>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!channelName.trim() || state.acquisitionChannels.includes(channelName.trim())}
+              onClick={() => {
+                const nextChannel = channelName.trim();
+                actions.addAcquisitionChannel(nextChannel);
+                setChannelResult(`${nextChannel} 유입 경로가 등록되어 고객 등록 선택지에 반영되었습니다.`);
+                setNewCustomer((current) => ({ ...current, acquisitionSource: nextChannel }));
+                setChannelName("");
+              }}
+            >
+              <Plus size={16} aria-hidden="true" /> 유입 채널 추가
+            </button>
+          </div>
+          <div className="recipient-statuses" aria-label="등록된 유입 경로">
+            {state.acquisitionChannels.map((channel) => <span key={channel}>{channel}</span>)}
+          </div>
+          {channelResult ? <p role="status" aria-label="유입 채널 등록 결과" className="panel-note">{channelResult}</p> : null}
         </Modal>
       ) : null}
 

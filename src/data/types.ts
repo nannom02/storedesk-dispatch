@@ -1,5 +1,5 @@
 export type CustomerKind = "개인" | "법인";
-export type AcquisitionSource = "웹사이트" | "전화" | "중개 플랫폼" | "검색 광고" | "카카오" | "기타";
+export type AcquisitionSource = string;
 export type CustomerStorageStatus = "상담중" | "보관중" | "보관종료";
 
 export interface Consultation {
@@ -112,6 +112,13 @@ export interface BankTx {
   handledBy?: string;
   handledAt?: string;
   groupedWith?: string[];
+  pendingContractId?: string;
+  manualReason?: string;
+  approvalStatus?: "승인 대기" | "승인 완료" | "반려";
+  approvalRequestedBy?: string;
+  approvalRequestedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 export interface MatchBatch {
@@ -178,6 +185,18 @@ export interface TransportVendor {
   note: string;
   completedJobs: number;
   onTimeRate: number;
+  serviceHistory: TransportServiceRecord[];
+}
+
+export interface TransportServiceRecord {
+  id: string;
+  movementId: string;
+  kind: MovementKind;
+  completedAt: string;
+  route: string;
+  transportCost: number;
+  liftCost: number;
+  result: "정시 완료" | "지연 완료";
 }
 
 export interface TransportAssignmentHistory {
@@ -281,6 +300,17 @@ export interface AuditEntry {
   action: string;
   target: string;
   category: "입금 대조" | "계약" | "발송" | "입출고" | "설정" | "삭제 시도" | "이관";
+}
+
+export interface StaffProfile {
+  id: string;
+  name: string;
+  role: AuditEntry["role"];
+  profile: string;
+  status: "활성" | "회수";
+  issuedAt: string;
+  issuedBy: string;
+  issuanceHistory: string[];
 }
 
 export interface MigrationIssue {

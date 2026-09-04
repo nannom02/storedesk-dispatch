@@ -19,6 +19,7 @@ import type {
   Notice,
   NotificationRecord,
   PayerAlias,
+  StaffProfile,
   StoredDocument,
   TransportAssignmentHistory,
   TransportVendor,
@@ -42,6 +43,7 @@ export interface ChatbotScript {
 interface State {
   clock: number;
   customers: Customer[];
+  acquisitionChannels: string[];
   contracts: Contract[];
   containers: ContainerUnit[];
   batches: MatchBatch[];
@@ -49,6 +51,7 @@ interface State {
   aliases: PayerAlias[];
   movements: Movement[];
   transportVendors: TransportVendor[];
+  staffProfiles: StaffProfile[];
   assignmentHistory: TransportAssignmentHistory[];
   workInstructions: WorkInstruction[];
   notifications: NotificationRecord[];
@@ -71,6 +74,7 @@ function initialState(): State {
   return {
     clock: 0,
     customers: seed.customers,
+    acquisitionChannels: seed.acquisitionChannels,
     contracts: seed.contracts,
     containers: seed.containers,
     batches: [seed.previousBatch],
@@ -78,6 +82,7 @@ function initialState(): State {
     aliases: seed.payerAliases,
     movements: seed.movements,
     transportVendors: seed.transportVendors,
+    staffProfiles: seed.staffProfiles,
     assignmentHistory: seed.assignmentHistory,
     workInstructions: seed.workInstructions,
     notifications: seed.notifications,
@@ -295,6 +300,27 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
 
       return customerId;
+    },
+
+    addAcquisitionChannel(name: string) {
+      const channel = name.trim();
+      if (!channel) return;
+      update((prev) => {
+        if (prev.acquisitionChannels.includes(channel)) {
+          return withToast(prev, `이미 등록된 유입 경로입니다: ${channel}`);
+        }
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          acquisitionChannels: [...next.acquisitionChannels, channel],
+        };
+        next = withAudit(next, {
+          action: `고객 유입 경로 추가 · ${channel}`,
+          target: "고객 기준정보",
+          category: "설정",
+        });
+        return withToast(next, `${channel} 유입 경로를 추가했습니다.`);
+      });
     },
 
     addConsultation(customerId: string, channel: Customer["consultations"][number]["channel"], note: string) {
@@ -527,6 +553,54 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
+    createTransportVendor(input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "serviceAreas" | "note">) {
+      const id = nextId("TV");
+      update((prev) => {
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          transportVendors: [
+            {
+              id,
+              ...input,
+              completedJobs: 0,
+              onTimeRate: 0,
+              serviceHistory: [],
+            },
+            ...next.transportVendors,
+          ],
+        };
+        next = withAudit(next, {
+          action: `운송업체 기준정보 등록 · ${input.name}`,
+          target: id,
+          category: "설정",
+        });
+        return withToast(next, `${input.name} 운송업체를 등록했습니다.`);
+      });
+      return id;
+    },
+
+    updateTransportVendor(vendorId: string, input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "serviceAreas" | "note">) {
+      update((prev) => {
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          transportVendors: next.transportVendors.map((vendor) =>
+            vendor.id === vendorId ? { ...vendor, ...input } : vendor,
+          ),
+          movements: next.movements.map((movement) =>
+            movement.vendorId === vendorId ? { ...movement, vendorName: input.name } : movement,
+          ),
+        };
+        next = withAudit(next, {
+          action: `운송업체 기준정보 수정 · ${input.name}`,
+          target: vendorId,
+          category: "설정",
+        });
+        return withToast(next, `${input.name} 운송업체 정보를 수정했습니다.`);
+      });
+    },
+
     selectInboundTransportVendor(movementId: string) {
       update((prev) => {
         const movement = prev.movements.find((item) => item.id === movementId);
@@ -599,7 +673,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           ),
         };
         next = withAudit(next, {
-          action: `운송비 ${transportCost.toLocaleString("ko-KR")}원 · 사다리차 ${ladderTruckCost.toLocaleString("ko-KR")}원 기록`,
+          action: `운송비 ${transportCost.toLocaleString("ko-KR")}원 · 리프트 ${ladderTruckCost.toLocaleString("ko-KR")}원 기록`,
           target: movementId,
           category: "입출고",
         });
@@ -787,11 +861,41 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
-    linkTx(txId: string, contractId: string) {
+    requestManualMatchApproval(txId: string, contractId: string, manualReason: string) {
+      update((prev) => {
+        let next = advance(prev, 1);
+        const reason = manualReason.trim();
+        if (!reason) return withToast(prev, "수동 매칭 사유를 입력해 주십시오.");
+        next = {
+          ...next,
+          txs: next.txs.map((item) =>
+            item.id === txId
+              ? {
+                  ...item,
+                  pendingContractId: contractId,
+                  manualReason: reason,
+                  approvalStatus: "승인 대기",
+                  approvalRequestedBy: OPERATOR.name,
+                  approvalRequestedAt: stampOf(next.clock),
+                }
+              : item,
+          ),
+        };
+        next = withAudit(next, {
+          action: `미매칭 입금 수동 연결 승인 요청 · ${reason}`,
+          target: `${txId} → ${contractId}`,
+          category: "입금 대조",
+        });
+        return withToast(next, `${txId} 수동 연결 승인을 요청했습니다.`);
+      });
+    },
+
+    approveManualMatch(txId: string) {
       update((prev) => {
         let next = advance(prev, 2);
         const tx = next.txs.find((item) => item.id === txId);
-        if (!tx) return prev;
+        const contractId = tx?.pendingContractId;
+        if (!tx || !contractId || tx.approvalStatus !== "승인 대기") return prev;
         let newEnd = "";
         next = {
           ...next,
@@ -801,6 +905,9 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
                   ...item,
                   status: "연결 완료",
                   contractId,
+                  approvalStatus: "승인 완료",
+                  approvedBy: OPERATOR.name,
+                  approvedAt: stampOf(next.clock),
                   handledBy: OPERATOR.name,
                   handledAt: stampOf(next.clock),
                 }
@@ -822,7 +929,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
                   payerName: tx.payerName,
                   method: "계좌이체" as const,
                   source: "수동 연결" as const,
-                  note: `${txId} 수동 연결`,
+                  note: `${txId} 수동 연결 · 승인 사유: ${tx.manualReason ?? "사유 확인"}`,
                 },
                 ...contract.payments,
               ],
@@ -830,11 +937,11 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           }),
         };
         next = withAudit(next, {
-          action: `미매칭 입금 수동 연결 · 만료일 ${newEnd}`,
+          action: `미매칭 입금 수동 연결 승인 · 만료일 ${newEnd}`,
           target: `${txId} → ${contractId}`,
           category: "입금 대조",
         });
-        return withToast(next, `${txId}를 ${contractId}에 연결하고 만료일을 ${newEnd}로 연장했습니다.`);
+        return withToast(next, `${txId} 수동 연결을 승인하고 만료일을 ${newEnd}로 연장했습니다.`);
       });
     },
 
@@ -1414,6 +1521,35 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
         });
         return withToast(next, `${issue?.rule ?? issueId} 오류를 해소했습니다.`);
       });
+    },
+
+    registerStaffProfile(input: Pick<StaffProfile, "name" | "role" | "profile">) {
+      const id = nextId("ST");
+      update((prev) => {
+        let next = advance(prev, 1);
+        const issuedAt = stampOf(next.clock);
+        next = {
+          ...next,
+          staffProfiles: [
+            {
+              id,
+              ...input,
+              status: "활성",
+              issuedAt,
+              issuedBy: OPERATOR.name,
+              issuanceHistory: [`${issuedAt} · ${input.profile} 프로필 발급`],
+            },
+            ...next.staffProfiles,
+          ],
+        };
+        next = withAudit(next, {
+          action: `직원 등록·역할 지정·프로필 발급 · ${input.name}`,
+          target: `${id} · ${input.role} · ${input.profile}`,
+          category: "설정",
+        });
+        return withToast(next, `${input.name} 직원을 등록하고 ${input.profile} 프로필을 발급했습니다.`);
+      });
+      return id;
     },
 
     setRole(role: State["role"]) {
