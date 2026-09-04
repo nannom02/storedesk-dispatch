@@ -212,6 +212,10 @@
   background: var(--surface-soft);
 }
 
+.instruction-fields input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
 .instruction-preview {
   display: grid;
   gap: var(--space-2);
@@ -1037,6 +1041,10 @@ table.data-table tbody tr:hover td {
   background: var(--surface-hover);
 }
 
+table.data-table tbody tr.interactive-row {
+  cursor: pointer;
+}
+
 table.data-table tbody tr[aria-selected="true"] td {
   background: var(--primary-soft);
 }
@@ -1084,6 +1092,47 @@ table.data-table th.numeric {
   color: var(--text-sub);
   font-size: var(--type-ui);
   flex-wrap: wrap;
+}
+
+.table-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.table-pagination button {
+  display: inline-flex;
+  min-width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: var(--type-ui);
+}
+
+.table-pagination button[aria-current="page"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.table-pagination button:disabled {
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.movement-workspace-stack {
+  align-content: start;
+}
+
+.movement-progress-panel {
+  gap: var(--space-3);
+  padding-block: var(--space-4);
 }
 
 /* ── State carriers ────────────────────────────────────────────────────── */

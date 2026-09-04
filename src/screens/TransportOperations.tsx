@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ExternalLink, History, Pencil, Plus, Search, Send, Trash2, Truck } from "lucide-react";
+import { Check, ExternalLink, History, Plus, Search, Send, Trash2, Truck } from "lucide-react";
 
 import { DescGrid, Modal, NoticeBar, PageHead, Panel, PanelRow, StateText, TableWrap } from "../components/ui";
 import { formatWon } from "../data/utils";
@@ -30,6 +30,15 @@ const NEW_VENDOR = {
   note: "평일 입출고와 리프트 동시 배차 가능",
 };
 
+function formatCurrencyInput(value: string | number) {
+  const digits = String(value).replace(/\D/g, "");
+  return digits ? Number(digits).toLocaleString("ko-KR") : "";
+}
+
+function parseCurrencyInput(value: string) {
+  return Number(value.replace(/\D/g, "")) || 0;
+}
+
 export default function TransportOperations() {
   const { state, derived, actions } = useStore();
   const targetMovements = state.movements.filter((movement) => !movement.done);
@@ -38,8 +47,8 @@ export default function TransportOperations() {
   const [vendorId, setVendorId] = useState(movement?.vendorId ?? state.transportVendors[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");
   const [reason, setReason] = useState("입고 당시 운송업체의 출고 일정 불가로 재배정");
-  const [transportCost, setTransportCost] = useState(String(movement?.transportCost ?? 180000));
-  const [ladderCost, setLadderCost] = useState(String(movement?.ladderTruckCost ?? 90000));
+  const [transportCost, setTransportCost] = useState(formatCurrencyInput(movement?.transportCost ?? 180000));
+  const [ladderCost, setLadderCost] = useState(formatCurrencyInput(movement?.ladderTruckCost ?? 90000));
   const [fields, setFields] = useState<string[]>(INSTRUCTION_FIELDS);
   const [recipients, setRecipients] = useState<WorkInstruction["recipients"][number]["label"][]>(RECIPIENT_LABELS);
   const [vendorSourceFeedback, setVendorSourceFeedback] = useState("");
@@ -68,8 +77,8 @@ export default function TransportOperations() {
     const next = state.movements.find((item) => item.id === nextId);
     setMovementId(nextId);
     setVendorId(next?.vendorId ?? state.transportVendors[0]?.id ?? "");
-    setTransportCost(String(next?.transportCost ?? 0));
-    setLadderCost(String(next?.ladderTruckCost ?? 0));
+    setTransportCost(formatCurrencyInput(next?.transportCost ?? 0));
+    setLadderCost(formatCurrencyInput(next?.ladderTruckCost ?? 0));
     setVendorSourceFeedback("");
     setCostFeedback("");
   }
@@ -167,21 +176,37 @@ export default function TransportOperations() {
                   <th scope="col">활동 지역</th>
                   <th scope="col">수행 실적</th>
                   <th scope="col" data-priority="low">운영 메모</th>
-                  <th scope="col" aria-label="선택" />
+                  <th scope="col" aria-label="상세" />
                 </tr>
               </thead>
               <tbody>
                 {vendors.map((item) => (
-                  <tr key={item.id} aria-selected={item.id === vendorId}>
-                    <td data-label="업체"><strong>{item.name}</strong><span className="cell-sub">{item.businessNo}</span></td>
-                    <td data-label="담당자·연락처">{item.manager}<span className="cell-sub">{item.phone}</span></td>
+                  <tr
+                    key={item.id}
+                    className="interactive-row"
+                    aria-label={`${item.name} 상세 보기`}
+                    aria-selected={item.id === vendorId}
+                    onClick={() => setVendorId(item.id)}
+                  >
+                    <td data-label="업체"><strong>{item.name}</strong><span className="cell-sub" data-density="support">{item.businessNo}</span></td>
+                    <td data-label="담당자·연락처">{item.manager}<span className="cell-sub" data-density="support">{item.phone}</span></td>
                     <td data-label="활동 지역">{item.serviceAreas.join(" · ")}</td>
                     <td data-label="수행 실적">{item.completedJobs}건<span className="cell-sub">정시 {item.onTimeRate}%</span></td>
                     <td data-label="운영 메모" data-priority="low">{item.note}</td>
-                    <td data-label="선택">
+                    <td data-label="상세">
                       <div className="row-actions">
-                        <button type="button" className="quiet-button" aria-label={`${item.name} 선택`} onClick={() => setVendorId(item.id)}>{item.id === vendorId ? "선택됨" : "선택"}</button>
-                        <button type="button" className="quiet-button" aria-label={`${item.name} 수정`} onClick={() => openVendorEdit(item.id)}><Pencil size={14} aria-hidden="true" /> 수정</button>
+                        <button
+                          type="button"
+                          className="quiet-button"
+                          aria-label={`${item.name} 상세`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setVendorId(item.id);
+                            openVendorEdit(item.id);
+                          }}
+                        >
+                          상세
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -261,8 +286,8 @@ export default function TransportOperations() {
       <PanelRow columns="5-7">
         <Panel title="비용 기록" description="운송·리프트 비용만 기록하며 정산·매입 세금계산서 기능은 후속 범위입니다.">
           <div className="form-grid" data-columns="2">
-            <label className="field"><span className="field-label">운송비</span><input inputMode="numeric" value={transportCost} onChange={(event) => setTransportCost(event.target.value.replace(/\D/g, ""))} /></label>
-            <label className="field"><span className="field-label">리프트 비용</span><input inputMode="numeric" value={ladderCost} onChange={(event) => setLadderCost(event.target.value.replace(/\D/g, ""))} /></label>
+            <label className="field"><span className="field-label">운송비</span><input inputMode="numeric" value={transportCost} onChange={(event) => setTransportCost(formatCurrencyInput(event.target.value))} /></label>
+            <label className="field"><span className="field-label">리프트 비용</span><input inputMode="numeric" value={ladderCost} onChange={(event) => setLadderCost(formatCurrencyInput(event.target.value))} /></label>
           </div>
           <button
             type="button"
@@ -270,14 +295,14 @@ export default function TransportOperations() {
             disabled={!movement}
             onClick={() => {
               if (!movement) return;
-              actions.saveTransportCosts(movement.id, Number(transportCost), Number(ladderCost));
+              actions.saveTransportCosts(movement.id, parseCurrencyInput(transportCost), parseCurrencyInput(ladderCost));
               setCostFeedback(`${movement.id} 비용을 작업 원장에 저장했습니다.`);
             }}
           >비용 저장</button>
           <div role="status" aria-label="작업지시 요약" className="transport-cost-summary">
-            <span>운송비 {formatWon(Number(transportCost) || 0)}</span>
-            <span>리프트 {formatWon(Number(ladderCost) || 0)}</span>
-            <strong>합계 {formatWon((Number(transportCost) || 0) + (Number(ladderCost) || 0))}</strong>
+            <span>운송비 {formatWon(parseCurrencyInput(transportCost))}</span>
+            <span>리프트 {formatWon(parseCurrencyInput(ladderCost))}</span>
+            <strong>합계 {formatWon(parseCurrencyInput(transportCost) + parseCurrencyInput(ladderCost))}</strong>
             {costFeedback ? <span className="support-text">{costFeedback}</span> : null}
           </div>
         </Panel>

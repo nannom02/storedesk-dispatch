@@ -32,6 +32,6 @@
     "note": "#158086 운영 배포를 보존하고 별도 저장소와 별도 Vercel 프로젝트로 배포한다."
   },
   "screens": 22,
-  "interactions": 90,
+  "interactions": 91,
   "portfolio": { "status": "not_requested" }
 }

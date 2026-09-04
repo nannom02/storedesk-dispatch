@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Camera, ChevronRight, Search, Smartphone, Truck } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, Search, Smartphone, Truck } from "lucide-react";
 
 import {
   ChipGroup,
@@ -36,6 +36,7 @@ const PHONE_TABS = [
 ];
 
 const QUICK_NUMBERS = ["A-14", "A-33", "B-07", "B-19", "C-04", "C-21"];
+const PAGE_SIZE = 10;
 
 export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
   const { state, derived, actions } = useStore();
@@ -86,6 +87,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
   const [phoneTab, setPhoneTab] = useState("today");
   const [query, setQuery] = useState("");
   const [lookup, setLookup] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const rows = allMovements.filter((movement) => {
     if (
@@ -114,6 +116,17 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
     : undefined;
   const lookupCustomer = lookupContract ? derived.customerOf(lookupContract) : undefined;
   const todayMovements = state.movements.filter((movement) => movement.scheduledDate === TODAY);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(pageStart, pageStart + PAGE_SIZE);
+
+  function goToPage(nextPage: number) {
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(safePage);
+    const firstRow = rows[(safePage - 1) * PAGE_SIZE];
+    if (firstRow) setSelectedId(firstRow.id);
+  }
 
   return (
     <div className="screen">
@@ -139,8 +152,8 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
           </div>
         ) : null}
         <div className="filter-bar">
-          <ChipGroup label="입출고 구분" options={KIND_FILTERS} value={kindFilter} onChange={setKindFilter} />
-          <ChipGroup label="진행 상태" options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} />
+          <ChipGroup label="입출고 구분" options={KIND_FILTERS} value={kindFilter} onChange={(value) => { setKindFilter(value); setPage(1); }} />
+          <ChipGroup label="진행 상태" options={STATUS_FILTERS} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(1); }} />
           <span className="panel-note" role="status" aria-label="입출고 목록 요약">
             표시 {rows.length}건 · 입고 {rows.filter((m) => m.kind === "입고").length} / 출고{" "}
             {rows.filter((m) => m.kind === "출고").length} · 미완료{" "}
@@ -151,8 +164,26 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
         <TableWrap
           footer={
             <>
-              <span>{rows.length}건 표시</span>
-              <span>오늘 예정 {todayMovements.length}건</span>
+              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}건` : "0건 표시"} · 오늘 예정 {todayMovements.length}건</span>
+              <div className="table-pagination" role="navigation" aria-label="입출고 목록 페이지">
+                <button type="button" aria-label="입출고 목록 이전 페이지" disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)}>
+                  <ChevronLeft size={15} aria-hidden="true" />
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    aria-label={`입출고 목록 ${pageNumber}페이지`}
+                    aria-current={pageNumber === currentPage ? "page" : undefined}
+                    onClick={() => goToPage(pageNumber)}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+                <button type="button" aria-label="입출고 목록 다음 페이지" disabled={currentPage === totalPages} onClick={() => goToPage(currentPage + 1)}>
+                  <ChevronRight size={15} aria-hidden="true" />
+                </button>
+              </div>
             </>
           }
         >
@@ -170,7 +201,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((movement) => {
+              {pageRows.map((movement) => {
                 const target = derived.contractById.get(movement.contractId);
                 const targetCustomerName =
                   movement.id === snapshotMovement?.id
@@ -220,8 +251,9 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
       </Panel>
 
       <PanelRow columns="7-5">
-        <div className="stack">
+        <div className="stack movement-workspace-stack">
           <Panel
+            className="movement-progress-panel"
             title={selected ? `${selected.id} 진행` : "진행"}
             description={
               selected

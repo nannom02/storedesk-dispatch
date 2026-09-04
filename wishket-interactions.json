@@ -182,6 +182,13 @@
       "expected": { "role": "status", "name": "입출고 목록 요약" }
     },
     {
+      "requirementId": "INT-MV-PAGE",
+      "screen": "입출고 관리",
+      "entry": [{ "role": "button", "name": "입출고 관리" }],
+      "control": { "role": "button", "name": "입출고 목록 2페이지" },
+      "expected": { "role": "button", "name": "MV-2609-032 상세" }
+    },
+    {
       "requirementId": "INT-CAL-DATE",
       "screen": "입출고 일정 캘린더",
       "entry": [{ "role": "button", "name": "입출고 일정 캘린더" }],
@@ -548,7 +555,7 @@
       "screen": "운송 배정·작업지시",
       "entry": [
         { "role": "button", "name": "운송 배정·작업지시" },
-        { "role": "button", "name": "한결운송 수정" }
+        { "role": "button", "name": "한결운송 상세" }
       ],
       "control": { "role": "button", "name": "운송업체 수정 저장" },
       "expected": { "role": "status", "name": "운송업체 기준정보 처리 결과" }
@@ -557,7 +564,7 @@
       "requirementId": "INT-TR-HISTORY",
       "screen": "운송 배정·작업지시",
       "entry": [{ "role": "button", "name": "운송 배정·작업지시" }],
-      "control": { "role": "button", "name": "새길로지스 선택" },
+      "control": { "role": "row", "name": "새길로지스 상세 보기" },
       "expected": { "role": "status", "name": "업체별 수행 이력" }
     },
     {
