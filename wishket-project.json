@@ -17,9 +17,9 @@
     "operator": "Codex 앱"
   },
   "prototypeVisitTracking": {
-    "enabled": false,
+    "enabled": true,
     "dashboardUrl": "https://msoftech-wishket-bid-ops.vercel.app",
-    "jobId": null,
+    "jobId": "5d0466f9-bbcb-44de-8f06-8a35ed644d24",
     "clientConfig": "public/prototype-visit.json",
     "policy": "제출 후 7일 동안 AI·자동화 접속은 제외하고 사람 입력 또는 8초 가시 체류가 확인된 외부 방문만 기록하며 활동은 시간당 최대 1회로 묶어 기록"
   },
