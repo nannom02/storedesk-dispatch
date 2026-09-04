@@ -575,7 +575,7 @@ export default function Customers() {
             </button>
           </div>
           <div className="recipient-statuses" aria-label="등록된 유입 경로">
-            {state.acquisitionChannels.map((channel) => <span key={channel}>{channel}</span>)}
+            {state.acquisitionChannels.join(" · ")}
           </div>
           {channelResult ? <p role="status" aria-label="유입 채널 등록 결과" className="panel-note">{channelResult}</p> : null}
         </Modal>
