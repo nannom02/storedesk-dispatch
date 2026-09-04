@@ -111,6 +111,21 @@ export default function Notifications() {
   );
 
   const failed = state.notifications.filter((item) => item.status === "발송 실패");
+  const expiryDayUnpaid = state.contracts.filter(
+    (contract) =>
+      contract.endDate === TODAY &&
+      state.billingItems.some(
+        (billing) =>
+          billing.contractId === contract.id &&
+          (billing.billingStatus === "미수" || billing.billingStatus === "통장 입금 확인"),
+      ) &&
+      !state.notifications.some(
+        (record) =>
+          record.contractId === contract.id &&
+          record.templateId === "TP-EXPIRE-UNPAID" &&
+          record.sentAt.startsWith(TODAY),
+      ),
+  );
   const sampleTemplate = sampleTemplateId
     ? TEMPLATES.find((item) => item.id === sampleTemplateId)
     : undefined;
@@ -228,7 +243,20 @@ export default function Notifications() {
   function changeTemplate(nextTemplateId: string) {
     const normalizedTemplateId = nextTemplateId as TemplateId;
     setTemplateId(normalizedTemplateId);
-    setSelectedContracts(getTargets(normalizedTemplateId).slice(0, 2).map((contract) => contract.id));
+    setSelectedContracts(
+      getTargets(normalizedTemplateId)
+        .filter(
+          (contract) =>
+            !state.notifications.some(
+              (record) =>
+                record.contractId === contract.id &&
+                record.templateId === normalizedTemplateId &&
+                record.sentAt.startsWith(TODAY),
+            ),
+        )
+        .slice(0, 2)
+        .map((contract) => contract.id),
+    );
   }
 
   function openSample(nextTemplateId: TemplateId, event: MouseEvent<HTMLButtonElement>) {
@@ -252,7 +280,10 @@ export default function Notifications() {
         return { contractId, target: `${customer.name} · ${customer.contact}` };
       })
       .filter((item): item is { contractId: string; target: string } => item !== null);
-    if (payload.length > 0) actions.sendNotifications(payload, templateId, template.label);
+    if (payload.length > 0) {
+      actions.sendNotifications(payload, templateId, template.label);
+      setSelectedContracts([]);
+    }
   }
 
   return (
@@ -286,6 +317,24 @@ export default function Notifications() {
           있습니다.
         </NoticeBar>
       )}
+
+      <NoticeBar
+        variant={expiryDayUnpaid.length ? "review" : "info"}
+        title={`만료 당일 미납 재안내 · ${expiryDayUnpaid.length}건 대기`}
+        action={
+          <button
+            type="button"
+            className="notice-action"
+            disabled={expiryDayUnpaid.length === 0}
+            title={expiryDayUnpaid.length === 0 ? "오늘 대상은 이미 발송했거나 존재하지 않습니다." : undefined}
+            onClick={() => actions.sendExpiryDayUnpaidReminders()}
+          >
+            만료 당일 미납 재안내 발송
+          </button>
+        }
+      >
+        계약 종료일이 오늘이고 미납 상태인 계약만 다시 안내합니다. 같은 계약은 오늘 한 번만 발송되며 재실행 시 저장소에서 중복을 차단합니다.
+      </NoticeBar>
 
       <PanelRow columns="7-5">
         <Panel
@@ -361,7 +410,7 @@ export default function Notifications() {
                           checked={selectedContracts.includes(contract.id)}
                           onChange={() => toggleTarget(contract.id)}
                           aria-label={`${contract.id} 발송 대상 선택`}
-                          disabled={customer?.smsOptOut}
+                          disabled={customer?.smsOptOut || alreadySent}
                         />
                       </td>
                       <td data-label="고객">

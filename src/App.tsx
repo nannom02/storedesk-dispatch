@@ -53,6 +53,7 @@ import ProposalOverview from "./screens/ProposalOverview";
 import KickoffDecisions from "./screens/KickoffDecisions";
 import DeliveryMethod from "./screens/DeliveryMethod";
 import ArchitectureDesign from "./screens/ArchitectureDesign";
+import PublicAccess from "./screens/PublicAccess";
 
 const PALETTE_STORAGE_KEY = "storedesk:palette";
 
@@ -517,9 +518,12 @@ function Shell() {
 }
 
 export default function App() {
+  const params = new URL(window.location.href).searchParams;
+  const publicMode = params.get("public");
+  const publicId = params.get("id") ?? params.get("contract") ?? "SC-2026-0288";
   return (
     <StoreProvider>
-      <Shell />
+      {publicMode ? <PublicAccess mode={publicMode} id={publicId} /> : <Shell />}
     </StoreProvider>
   );
 }

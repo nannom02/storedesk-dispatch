@@ -220,6 +220,97 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
 
   const update = (mutator: (state: State) => State) => setState((state) => mutator(state));
 
+  const synchronizeMovementCompletion = (
+    state: State,
+    movement: Movement,
+    done: boolean,
+  ): State => {
+    const contract = state.contracts.find((item) => item.id === movement.contractId);
+    const vendor = movement.vendorId
+      ? state.transportVendors.find((item) => item.id === movement.vendorId)
+      : undefined;
+    const warehouse = seed.warehouses.find((item) => item.id === movement.warehouseId);
+    const route = movement.pickupAddress ?? `${warehouse?.name ?? movement.warehouseId} · ${movement.containerNo}`;
+    const performanceId = `VH-${movement.id}`;
+
+    return {
+      ...state,
+      contracts: state.contracts.map((item) =>
+        item.id !== movement.contractId || movement.kind !== "출고"
+          ? item
+          : done
+            ? { ...item, status: "만료", closeReason: "정상 종료" }
+            : { ...item, status: "정상", closeReason: undefined },
+      ),
+      containers: state.containers.map((unit) => {
+        if (movement.kind !== "출고") return unit;
+        if (done && unit.contractId === movement.contractId) {
+          return { ...unit, occupancyStatus: "available", contractId: null, occupancyDetail: null };
+        }
+        if (!done && unit.warehouseId === movement.warehouseId && unit.no === movement.containerNo) {
+          return { ...unit, occupancyStatus: "occupied", contractId: movement.contractId };
+        }
+        return unit;
+      }),
+      customers: state.customers.map((customer) =>
+        customer.id === contract?.customerId
+          ? {
+              ...customer,
+              storageStatus: done
+                ? movement.kind === "출고"
+                  ? "보관종료"
+                  : "보관중"
+                : "보관중",
+            }
+          : customer,
+      ),
+      transportVendors: state.transportVendors.map((item) => {
+        if (!vendor || item.id !== vendor.id) return item;
+        const existing = item.serviceHistory.find((record) => record.movementId === movement.id);
+        if (!done) {
+          const hasRecordedCost = Boolean(movement.transportCost || movement.ladderTruckCost);
+          const retainedRecord = existing && hasRecordedCost
+            ? {
+                ...existing,
+                completedAt: stampOf(state.clock),
+                transportCost: movement.transportCost ?? existing.transportCost,
+                liftCost: movement.ladderTruckCost ?? existing.liftCost,
+                result: "비용 기록" as const,
+              }
+            : undefined;
+          return {
+            ...item,
+            completedJobs:
+              existing && existing.result !== "비용 기록"
+                ? Math.max(0, item.completedJobs - 1)
+                : item.completedJobs,
+            serviceHistory: retainedRecord
+              ? [
+                  retainedRecord,
+                  ...item.serviceHistory.filter((record) => record.movementId !== movement.id),
+                ]
+              : item.serviceHistory.filter((record) => record.movementId !== movement.id),
+          };
+        }
+        const record = {
+          id: existing?.id ?? performanceId,
+          movementId: movement.id,
+          kind: movement.kind,
+          completedAt: movement.handledAt ?? stampOf(state.clock),
+          route,
+          transportCost: movement.transportCost ?? existing?.transportCost ?? 0,
+          liftCost: movement.ladderTruckCost ?? existing?.liftCost ?? 0,
+          result: "정시 완료" as const,
+        };
+        return {
+          ...item,
+          completedJobs: existing && existing.result !== "비용 기록" ? item.completedJobs : item.completedJobs + 1,
+          serviceHistory: [record, ...item.serviceHistory.filter((entry) => entry.movementId !== movement.id)],
+        };
+      }),
+    };
+  };
+
   return {
     dismissToast(id: string) {
       setState((state) => ({ ...state, toasts: state.toasts.filter((t) => t.id !== id) }));
@@ -393,6 +484,32 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
+    uploadCustomerAttachment(customerId: string, fileName: string) {
+      update((prev) => {
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          customers: next.customers.map((customer) =>
+            customer.id === customerId
+              ? {
+                  ...customer,
+                  attachments: [
+                    { name: fileName, uploadedAt: `${stampOf(next.clock)} · ${OPERATOR.name}` },
+                    ...customer.attachments.filter((file) => file.name !== fileName),
+                  ],
+                }
+              : customer,
+          ),
+        };
+        next = withAudit(next, {
+          action: `고객 첨부파일 등록 · ${fileName}`,
+          target: customerId,
+          category: "계약",
+        });
+        return withToast(next, `${fileName}을 고객 원장에 등록했습니다.`);
+      });
+    },
+
     extendContract(contractId: string, months: number) {
       update((prev) => {
         let next = advance(prev, 2);
@@ -415,6 +532,105 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           category: "계약",
         });
         return withToast(next, `만료일을 ${newEnd}로 재계산했습니다.`);
+      });
+    },
+
+    createContract(input: Omit<Contract, "id" | "status" | "overdueDays" | "unpaidPrincipal" | "payments">) {
+      const id = nextId("SC-NEW");
+      update((prev) => {
+        const container = prev.containers.find(
+          (unit) => unit.warehouseId === input.warehouseId && unit.no === input.containerNo,
+        );
+        if (!container || container.occupancyStatus !== "available") {
+          return withToast(prev, "선택한 컨테이너는 이미 사용 중입니다.");
+        }
+        let next = advance(prev, 2);
+        const contract: Contract = {
+          ...input,
+          id,
+          status: "정상",
+          overdueDays: 0,
+          unpaidPrincipal: 0,
+          payments: [],
+        };
+        next = {
+          ...next,
+          contracts: [contract, ...next.contracts],
+          containers: next.containers.map((unit) =>
+            unit.id === container.id
+              ? { ...unit, occupancyStatus: "occupied", contractId: id, occupancyDetail: null }
+              : unit,
+          ),
+          customers: next.customers.map((customer) =>
+            customer.id === input.customerId ? { ...customer, storageStatus: "보관중" } : customer,
+          ),
+        };
+        next = withAudit(next, { action: "신규 계약 등록", target: id, category: "계약" });
+        return withToast(next, `${id} 계약을 등록하고 ${input.containerNo}를 배정했습니다.`);
+      });
+      return id;
+    },
+
+    updateContract(
+      contractId: string,
+      input: Pick<Contract, "customerId" | "warehouseId" | "containerNo" | "startDate" | "endDate" | "monthlyFee" | "discount" | "deposit" | "payMethod">,
+    ) {
+      update((prev) => {
+        const current = prev.contracts.find((contract) => contract.id === contractId);
+        if (!current) return prev;
+        const nextContainer = prev.containers.find(
+          (unit) => unit.warehouseId === input.warehouseId && unit.no === input.containerNo,
+        );
+        if (!nextContainer || (nextContainer.contractId && nextContainer.contractId !== contractId)) {
+          return withToast(prev, "선택한 컨테이너는 다른 계약에서 사용 중입니다.");
+        }
+        let next = advance(prev, 2);
+        next = {
+          ...next,
+          contracts: next.contracts.map((contract) =>
+            contract.id === contractId ? { ...contract, ...input } : contract,
+          ),
+          containers: next.containers.map((unit) => {
+            if (unit.contractId === contractId && unit.id !== nextContainer.id) {
+              return { ...unit, occupancyStatus: "available", contractId: null, occupancyDetail: null };
+            }
+            return unit.id === nextContainer.id
+              ? { ...unit, occupancyStatus: "occupied", contractId, occupancyDetail: null }
+              : unit;
+          }),
+        };
+        next = withAudit(next, { action: "계약 전체 정보 수정", target: contractId, category: "계약" });
+        return withToast(next, `${contractId} 계약 정보를 저장했습니다.`);
+      });
+    },
+
+    deleteContract(contractId: string) {
+      update((prev) => {
+        if (prev.role !== "최고관리자") {
+          const denied = withAudit(advance(prev, 1), {
+            action: "계약 삭제 시도 · 최고관리자 권한 필요",
+            target: contractId,
+            category: "삭제 시도",
+          });
+          return withToast(denied, "계약 삭제는 최고관리자만 할 수 있습니다.");
+        }
+        const referenced =
+          prev.movements.some((item) => item.contractId === contractId) ||
+          prev.billingItems.some((item) => item.contractId === contractId) ||
+          prev.documents.some((item) => item.contractId === contractId);
+        if (referenced) return withToast(prev, "입출고·결제·문서 이력이 있는 계약은 삭제할 수 없습니다.");
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          contracts: next.contracts.filter((contract) => contract.id !== contractId),
+          containers: next.containers.map((unit) =>
+            unit.contractId === contractId
+              ? { ...unit, occupancyStatus: "available", contractId: null, occupancyDetail: null }
+              : unit,
+          ),
+        };
+        next = withAudit(next, { action: "계약 삭제", target: contractId, category: "계약" });
+        return withToast(next, `${contractId} 계약을 삭제하고 컨테이너를 반환했습니다.`);
       });
     },
 
@@ -482,28 +698,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
         };
 
         if (completedMovement) {
-          const completed = completedMovement as Movement;
-          const contract = next.contracts.find((item) => item.id === completed.contractId);
-          next = {
-            ...next,
-            contracts: next.contracts.map((item) =>
-              item.id !== completed.contractId
-                ? item
-                : completed.kind === "출고"
-                  ? { ...item, status: "만료", closeReason: "정상 종료" }
-                  : item,
-            ),
-            containers: next.containers.map((unit) =>
-              completed.kind === "출고" && unit.contractId === completed.contractId
-                ? { ...unit, occupancyStatus: "available", contractId: null, occupancyDetail: null }
-                : unit,
-            ),
-            customers: next.customers.map((customer) =>
-              customer.id === contract?.customerId
-                ? { ...customer, storageStatus: completed.kind === "출고" ? "보관종료" : "보관중" }
-                : customer,
-            ),
-          };
+          next = synchronizeMovementCompletion(next, completedMovement as Movement, true);
         }
         next = withAudit(next, {
           action: completedMovement && (completedMovement as Movement).kind === "출고"
@@ -554,7 +749,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
     },
 
     createTransportVendor(input: Pick<TransportVendor, "name" | "manager" | "phone" | "businessNo" | "serviceAreas" | "note">) {
-      const id = nextId("TV");
+      const id = nextId("TV-NEW");
       update((prev) => {
         let next = advance(prev, 1);
         next = {
@@ -598,6 +793,34 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           category: "설정",
         });
         return withToast(next, `${input.name} 운송업체 정보를 수정했습니다.`);
+      });
+    },
+
+    deleteTransportVendor(vendorId: string) {
+      update((prev) => {
+        if (prev.role !== "최고관리자") {
+          const denied = withAudit(advance(prev, 1), {
+            action: "운송업체 삭제 시도 · 최고관리자 권한 필요",
+            target: vendorId,
+            category: "삭제 시도",
+          });
+          return withToast(denied, "운송업체 삭제는 최고관리자만 할 수 있습니다.");
+        }
+        if (prev.movements.some((movement) => movement.vendorId === vendorId)) {
+          return withToast(prev, "입출고 배정 이력이 있는 운송업체는 삭제할 수 없습니다.");
+        }
+        const vendor = prev.transportVendors.find((item) => item.id === vendorId);
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          transportVendors: next.transportVendors.filter((item) => item.id !== vendorId),
+        };
+        next = withAudit(next, {
+          action: `운송업체 삭제 · ${vendor?.name ?? vendorId}`,
+          target: vendorId,
+          category: "설정",
+        });
+        return withToast(next, `${vendor?.name ?? vendorId} 운송업체를 삭제했습니다.`);
       });
     },
 
@@ -666,49 +889,89 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
     saveTransportCosts(movementId: string, transportCost: number, ladderTruckCost: number) {
       update((prev) => {
         let next = advance(prev, 1);
+        const movement = next.movements.find((item) => item.id === movementId);
+        const warehouse = seed.warehouses.find((item) => item.id === movement?.warehouseId);
         next = {
           ...next,
           movements: next.movements.map((item) =>
             item.id === movementId ? { ...item, transportCost, ladderTruckCost } : item,
           ),
+          transportVendors: next.transportVendors.map((vendor) => {
+            if (!movement?.vendorId || vendor.id !== movement.vendorId) return vendor;
+            const existing = vendor.serviceHistory.find((record) => record.movementId === movementId);
+            const record = {
+              id: existing?.id ?? `VH-${movementId}`,
+              movementId,
+              kind: movement.kind,
+              completedAt: movement.done ? movement.handledAt ?? stampOf(next.clock) : stampOf(next.clock),
+              route: movement.pickupAddress ?? `${warehouse?.name ?? movement.warehouseId} · ${movement.containerNo}`,
+              transportCost,
+              liftCost: ladderTruckCost,
+              result: movement.done ? ("정시 완료" as const) : ("비용 기록" as const),
+            };
+            return {
+              ...vendor,
+              serviceHistory: [record, ...vendor.serviceHistory.filter((item) => item.movementId !== movementId)],
+            };
+          }),
         };
         next = withAudit(next, {
           action: `운송비 ${transportCost.toLocaleString("ko-KR")}원 · 리프트 ${ladderTruckCost.toLocaleString("ko-KR")}원 기록`,
           target: movementId,
           category: "입출고",
         });
-        return withToast(next, "운송 비용을 작업 원장에 저장했습니다.");
+        return withToast(next, "운송 비용을 입출고 원장과 업체 수행 이력에 함께 저장했습니다.");
       });
     },
 
-    sendWorkInstruction(movementId: string, fields: string[]) {
+    sendWorkInstruction(
+      movementId: string,
+      fields: string[],
+      selectedRecipients: WorkInstruction["recipients"][number]["label"][],
+    ) {
       update((prev) => {
         let next = advance(prev, 2);
         const movement = next.movements.find((item) => item.id === movementId);
         if (!movement?.vendorId || !movement.vendorName) {
           return withToast(prev, "먼저 운송업체를 배정해 주십시오.");
         }
+        if (selectedRecipients.length === 0) {
+          return withToast(prev, "작업지시를 받을 담당자를 한 명 이상 선택해 주십시오.");
+        }
+        const warehouse = seed.warehouses.find((item) => item.id === movement.warehouseId);
+        const vendor = next.transportVendors.find((item) => item.id === movement.vendorId);
+        const recipientTargets: Record<WorkInstruction["recipients"][number]["label"], string> = {
+          운영팀: `${OPERATOR.name} · 운영 담당`,
+          창고팀: `${warehouse?.managerName ?? movement.driver} · ${movement.team}`,
+          운송업체: `${vendor?.manager ?? movement.driver} · ${vendor?.phone ?? "연락처 확인 필요"}`,
+        };
         const instruction: WorkInstruction = {
           id: nextId("WO"),
           movementId,
           vendorId: movement.vendorId,
           vendorName: movement.vendorName,
           fields,
-          recipients: [
-            { label: "운영팀", status: "발송 완료" },
-            { label: "창고팀", status: "발송 완료" },
-            { label: "운송업체", status: "발송 완료" },
-          ],
+          recipients: selectedRecipients.map((label) => ({
+            label,
+            target: recipientTargets[label],
+            status: "발송 완료" as const,
+          })),
           sentBy: OPERATOR.name,
           sentAt: stampOf(next.clock),
         };
+        const contract = next.contracts.find((item) => item.id === movement.contractId);
+        const customer = next.customers.find((item) => item.id === contract?.customerId);
+        window.localStorage.setItem(
+          `storedesk:work-instruction:${instruction.id}`,
+          JSON.stringify({ instruction, movement, contract, customer, warehouse, vendor }),
+        );
         next = { ...next, workInstructions: [instruction, ...next.workInstructions] };
         next = withAudit(next, {
-          action: `작업지시 3자 동시 발송 · ${movement.vendorName}`,
+          action: `작업지시 담당자 발송 ${selectedRecipients.length}명 · ${movement.vendorName}`,
           target: `${instruction.id} · ${movementId}`,
           category: "발송",
         });
-        return withToast(next, "운영팀·창고팀·운송업체에 작업지시를 동시에 발송했습니다.");
+        return withToast(next, `${selectedRecipients.length}명의 실제 담당자에게 작업지시를 발송했습니다.`);
       });
     },
 
@@ -770,12 +1033,19 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
             };
           }),
         };
+        const changed = next.movements.find((movement) => movement.id === movementId);
+        if (changed) next = synchronizeMovementCompletion(next, changed, done);
         next = withAudit(next, {
           action: done ? "입출고 처리 완료 표시" : "입출고 처리 완료 표시 해제",
           target: movementId,
           category: "입출고",
         });
-        return withToast(next, done ? "처리 완료로 표시했습니다." : "처리 완료 표시를 해제했습니다.");
+        return withToast(
+          next,
+          done
+            ? "처리 완료와 고객·계약·컨테이너·운송 수행 이력을 함께 갱신했습니다."
+            : "처리 완료 표시와 연결 원장 상태를 함께 되돌렸습니다.",
+        );
       });
     },
 
@@ -1178,6 +1448,30 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
+    cancelCardPayment(billingId: string) {
+      update((prev) => {
+        const item = prev.billingItems.find((billing) => billing.id === billingId);
+        if (item?.billingStatus !== "카드 승인") {
+          return withToast(prev, "승인 완료된 카드 결제만 취소할 수 있습니다.");
+        }
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          billingItems: next.billingItems.map((billing) =>
+            billing.id === billingId
+              ? {
+                  ...billing,
+                  billingStatus: "카드 취소",
+                  cardResponse: `결제선생 취소 · 원승인 취소 완료 · ${stampOf(next.clock)}`,
+                }
+              : billing,
+          ),
+        };
+        next = withAudit(next, { action: "결제선생 카드 승인 취소", target: billingId, category: "계약" });
+        return withToast(next, "카드 승인을 취소하고 응답 이력을 기록했습니다.");
+      });
+    },
+
     confirmBankDeposit(billingId: string) {
       update((prev) => {
         let next = advance(prev, 1);
@@ -1202,13 +1496,39 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
+    approveInvoices(billingIds: string[]) {
+      update((prev) => {
+        const targets = prev.billingItems.filter(
+          (item) => billingIds.includes(item.id) && item.invoiceStatus === "발행 대기",
+        );
+        if (targets.length === 0) return withToast(prev, "승인할 발행 대기 건을 선택해 주십시오.");
+        let next = advance(prev, 1);
+        next = {
+          ...next,
+          billingItems: next.billingItems.map((item) =>
+            targets.some((target) => target.id === item.id) ? { ...item, invoiceStatus: "승인" } : item,
+          ),
+        };
+        next = withAudit(next, {
+          action: `세금계산서 발행 승인 ${targets.length}건`,
+          target: targets.map((item) => item.id).join(", "),
+          category: "계약",
+        });
+        return withToast(next, `${targets.length}건을 발행 승인했습니다.`);
+      });
+    },
+
     issueInvoices(billingIds: string[]) {
       update((prev) => {
+        const targets = prev.billingItems.filter(
+          (item) => billingIds.includes(item.id) && item.invoiceStatus === "승인",
+        );
+        if (targets.length === 0) return withToast(prev, "발행 승인된 건을 선택해 주십시오.");
         let next = advance(prev, 2);
         next = {
           ...next,
           billingItems: next.billingItems.map((item) =>
-            billingIds.includes(item.id)
+            targets.some((target) => target.id === item.id)
               ? {
                   ...item,
                   invoiceStatus: "발행 완료",
@@ -1219,11 +1539,32 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           ),
         };
         next = withAudit(next, {
-          action: `센드빌 세금계산서 일괄 발행 ${billingIds.length}건`,
-          target: billingIds.join(", "),
+          action: `센드빌 세금계산서 일괄 발행 ${targets.length}건`,
+          target: targets.map((item) => item.id).join(", "),
           category: "계약",
         });
-        return withToast(next, `${billingIds.length}건을 센드빌로 일괄 발행했습니다.`);
+        return withToast(next, `${targets.length}건을 센드빌로 일괄 발행했습니다.`);
+      });
+    },
+
+    toggleRecurringBilling(billingId: string) {
+      update((prev) => {
+        let next = advance(prev, 1);
+        let recurring = false;
+        next = {
+          ...next,
+          billingItems: next.billingItems.map((item) => {
+            if (item.id !== billingId) return item;
+            recurring = !item.recurring;
+            return { ...item, recurring };
+          }),
+        };
+        next = withAudit(next, {
+          action: recurring ? "정기 청구 사용" : "정기 청구 중지",
+          target: billingId,
+          category: "설정",
+        });
+        return withToast(next, recurring ? "정기 청구를 사용하도록 설정했습니다." : "다음 달 정기 청구 대상에서 제외했습니다.");
       });
     },
 
@@ -1363,12 +1704,24 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
 
     sendNotifications(targets: { contractId: string; target: string }[], templateId: string, templateName: string) {
       update((prev) => {
+        const uniqueTargets = targets.filter(
+          (target) =>
+            !prev.notifications.some(
+              (record) =>
+                record.contractId === target.contractId &&
+                record.templateId === templateId &&
+                record.sentAt.startsWith(TODAY),
+            ),
+        );
+        if (uniqueTargets.length === 0) {
+          return withToast(prev, "선택한 계약은 오늘 이미 같은 알림을 받아 중복 발송을 차단했습니다.");
+        }
         let next = advance(prev, 2);
         const at = stampOf(next.clock);
         next = {
           ...next,
           notifications: [
-            ...targets.map((item) => ({
+            ...uniqueTargets.map((item) => ({
               id: nextId("NT"),
               channel: "알림톡" as const,
               templateId,
@@ -1383,11 +1736,66 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
           ],
         };
         next = withAudit(next, {
-          action: `${templateName} 선택 발송 ${targets.length}건`,
-          target: targets.map((item) => item.contractId).join(", "),
+          action: `${templateName} 선택 발송 ${uniqueTargets.length}건`,
+          target: uniqueTargets.map((item) => item.contractId).join(", "),
           category: "발송",
         });
-        return withToast(next, `${targets.length}건을 발송했습니다.`);
+        const blocked = targets.length - uniqueTargets.length;
+        return withToast(next, `${uniqueTargets.length}건을 발송했습니다.${blocked ? ` 중복 ${blocked}건은 차단했습니다.` : ""}`);
+      });
+    },
+
+    sendExpiryDayUnpaidReminders() {
+      update((prev) => {
+        const candidates = prev.contracts.filter(
+          (contract) =>
+            contract.endDate === TODAY &&
+            prev.billingItems.some(
+              (billing) =>
+                billing.contractId === contract.id &&
+                (billing.billingStatus === "미수" || billing.billingStatus === "통장 입금 확인"),
+            ),
+        );
+        const unsent = candidates.filter(
+          (contract) =>
+            !prev.notifications.some(
+              (record) =>
+                record.contractId === contract.id &&
+                record.templateId === "TP-EXPIRE-UNPAID" &&
+                record.sentAt.startsWith(TODAY),
+            ),
+        );
+        if (unsent.length === 0) {
+          return withToast(prev, "만료 당일 미납 재안내 대상이 없거나 오늘 발송을 마쳤습니다.");
+        }
+        let next = advance(prev, 1);
+        const at = stampOf(next.clock);
+        next = {
+          ...next,
+          notifications: [
+            ...unsent.map((contract) => {
+              const customer = next.customers.find((item) => item.id === contract.customerId);
+              return {
+                id: nextId("NT"),
+                channel: "알림톡" as const,
+                templateId: "TP-EXPIRE-UNPAID",
+                templateName: "만료 당일 미납 재안내",
+                target: `${customer?.name ?? contract.customerId} · ${customer?.contact ?? "연락처 확인"}`,
+                contractId: contract.id,
+                sentAt: at,
+                status: "발송 완료" as const,
+                handledBy: OPERATOR.name,
+              };
+            }),
+            ...next.notifications,
+          ],
+        };
+        next = withAudit(next, {
+          action: `만료 당일 미납 재안내 ${unsent.length}건`,
+          target: unsent.map((contract) => contract.id).join(", "),
+          category: "발송",
+        });
+        return withToast(next, `${unsent.length}건에 만료 당일 미납 재안내를 발송했습니다.`);
       });
     },
 
@@ -1504,6 +1912,18 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
+    recordMigrationReportExport() {
+      update((prev) => {
+        let next = advance(prev, 1);
+        next = withAudit(next, {
+          action: "이관 검증 결과서 PDF 내보내기",
+          target: seed.migrationSummary.fileName,
+          category: "이관",
+        });
+        return withToast(next, "이관 검증 결과서 PDF를 생성했습니다.");
+      });
+    },
+
     resolveMigrationIssue(issueId: string) {
       update((prev) => {
         let next = advance(prev, 1);
@@ -1523,7 +1943,7 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
       });
     },
 
-    registerStaffProfile(input: Pick<StaffProfile, "name" | "role" | "profile">) {
+    registerStaffProfile(input: Pick<StaffProfile, "name" | "role" | "profile" | "permissions">) {
       const id = nextId("ST");
       update((prev) => {
         let next = advance(prev, 1);
@@ -1550,6 +1970,34 @@ function buildActions(setState: React.Dispatch<React.SetStateAction<State>>) {
         return withToast(next, `${input.name} 직원을 등록하고 ${input.profile} 프로필을 발급했습니다.`);
       });
       return id;
+    },
+
+    revokeStaffProfile(staffId: string) {
+      update((prev) => {
+        const staff = prev.staffProfiles.find((item) => item.id === staffId);
+        if (!staff || staff.status === "회수") return prev;
+        if (staff.role === "최고관리자") return withToast(prev, "최고관리자 프로필은 회수할 수 없습니다.");
+        let next = advance(prev, 1);
+        const at = stampOf(next.clock);
+        next = {
+          ...next,
+          staffProfiles: next.staffProfiles.map((item) =>
+            item.id === staffId
+              ? {
+                  ...item,
+                  status: "회수",
+                  issuanceHistory: [`${at} · ${OPERATOR.name} 접근 프로필 회수`, ...item.issuanceHistory],
+                }
+              : item,
+          ),
+        };
+        next = withAudit(next, {
+          action: `접근 프로필 회수 · ${staff.name}`,
+          target: staffId,
+          category: "설정",
+        });
+        return withToast(next, `${staff.name}의 접근 프로필을 회수했습니다.`);
+      });
     },
 
     setRole(role: State["role"]) {

@@ -18,8 +18,12 @@ export default function Billing() {
   const [selectedIds, setSelectedIds] = useState<string[]>(["BL-2609-001", "BL-2609-002"]);
 
   const pending = state.billingItems.filter((item) => item.invoiceStatus === "발행 대기");
+  const approved = state.billingItems.filter((item) => item.invoiceStatus === "승인");
   const failed = state.billingItems.filter((item) => item.invoiceStatus === "발행 실패");
   const recurring = state.billingItems.filter((item) => item.recurring);
+  const selectedApprovedIds = selectedIds.filter((id) =>
+    state.billingItems.some((item) => item.id === id && item.invoiceStatus === "승인"),
+  );
 
   function toggle(id: string) {
     setSelectedIds((current) =>
@@ -93,22 +97,21 @@ export default function Billing() {
         title="청구·발행 대상"
         description="미수 → 통장 입금 확인 → 입금 완료 2단계와 세금계산서 발행 상태를 함께 관리합니다."
         actions={
-          <button
-            type="button"
-            className="primary-button"
-            disabled={selectedIds.length === 0}
-            onClick={() => actions.issueInvoices(selectedIds)}
-          >
-            <Receipt size={16} aria-hidden="true" />
-            선택 건 일괄 발행
-          </button>
+          <>
+            <button type="button" className="primary-button" disabled={selectedIds.length === 0} onClick={() => actions.approveInvoices(selectedIds)}>
+              선택 건 발행 승인
+            </button>
+            <button type="button" className="ghost-button" disabled={selectedApprovedIds.length === 0} onClick={() => actions.issueInvoices(selectedApprovedIds)}>
+              <Receipt size={16} aria-hidden="true" /> 승인 건 일괄 발행
+            </button>
+          </>
         }
       >
         <TableWrap
           footer={
             <>
               <span role="status" aria-label="청구 발행 요약">
-                전체 {state.billingItems.length}건 · 발행 대기 {pending.length} / 실패 {failed.length} ·
+                전체 {state.billingItems.length}건 · 발행 대기 {pending.length} / 승인 {approved.length} / 실패 {failed.length} ·
                 선택 {selectedIds.length}건
               </span>
               <span className="tabular">
@@ -204,15 +207,12 @@ export default function Billing() {
                         >
                           입금 확인
                         </button>
-                        <button
-                          type="button"
-                          className="quiet-button"
-                          aria-label={`${item.id} 카드 결제 요청`}
-                          disabled={item.billingStatus === "카드 승인"}
-                          onClick={() => actions.requestCardPayment(item.id)}
-                        >
-                          카드 요청
-                        </button>
+                        {item.billingStatus === "카드 승인" ? (
+                          <button type="button" className="quiet-button" aria-label={`${item.id} 카드 승인 취소`} onClick={() => actions.cancelCardPayment(item.id)}>카드 취소</button>
+                        ) : (
+                          <button type="button" className="quiet-button" aria-label={`${item.id} 카드 결제 요청`} disabled={item.billingStatus === "입금 완료" || item.billingStatus === "카드 취소"} onClick={() => actions.requestCardPayment(item.id)}>카드 요청</button>
+                        )}
+                        <button type="button" className="quiet-button" aria-label={`${item.id} ${item.recurring ? "정기 청구 중지" : "정기 청구 사용"}`} onClick={() => actions.toggleRecurringBilling(item.id)}>{item.recurring ? "정기 중지" : "정기 사용"}</button>
                       </div>
                     </td>
                   </tr>
@@ -245,6 +245,11 @@ export default function Billing() {
                 <CreditCard size={16} aria-hidden="true" />
                 카드 결제 요청
               </button>
+              {state.billingItems.find((item) => item.id === "BL-2609-001")?.billingStatus === "카드 승인" ? (
+                <button type="button" className="ghost-button" onClick={() => actions.cancelCardPayment("BL-2609-001")}>
+                  카드 승인 취소
+                </button>
+              ) : null}
             </>
           }
         >
@@ -301,7 +306,7 @@ export default function Billing() {
             ) : null
           }
         >
-          <ul className="record-list">
+          <ul className="record-list" role="status" aria-label="정기 청구 설정 원장">
             {recurring.map((item) => (
               <li key={item.id}>
                 <div className="record-list-head">
@@ -317,6 +322,9 @@ export default function Billing() {
                   {item.invoiceNo ? ` · 접수번호 ${item.invoiceNo}` : ""}
                   {item.retryCount > 0 ? ` · 재시도 ${item.retryCount}회` : ""}
                 </p>
+                <button type="button" className="quiet-button" onClick={() => actions.toggleRecurringBilling(item.id)}>
+                  {item.recurring ? "정기 청구 중지" : "정기 청구 사용"}
+                </button>
               </li>
             ))}
           </ul>

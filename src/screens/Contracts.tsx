@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { CalendarClock, Search } from "lucide-react";
+import { CalendarClock, Plus, Search, Trash2 } from "lucide-react";
 
 import {
   Badge,
   ChipGroup,
   DescGrid,
+  Modal,
   NoticeBar,
   PageHead,
   Panel,
@@ -28,6 +29,19 @@ const FILTERS = [
   { id: "만료", label: "만료" },
   { id: "중도 해지", label: "중도 해지" },
 ];
+
+type ContractForm = Pick<
+  Contract,
+  | "customerId"
+  | "warehouseId"
+  | "containerNo"
+  | "startDate"
+  | "endDate"
+  | "monthlyFee"
+  | "discount"
+  | "deposit"
+  | "payMethod"
+>;
 
 export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
   const { state, derived, actions } = useStore();
@@ -74,6 +88,20 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
     focusedRealContract?.id ?? focusedSnapshotContract?.id ?? "SC-2026-0412",
   );
   const [months, setMonths] = useState(6);
+  const [contractModal, setContractModal] = useState<"create" | "edit" | null>(null);
+  const [contractError, setContractError] = useState("");
+  const [contractResult, setContractResult] = useState("");
+  const [contractForm, setContractForm] = useState<ContractForm>({
+    customerId: state.customers[0]?.id ?? "",
+    warehouseId: state.containers.find((unit) => unit.occupancyStatus === "available")?.warehouseId ?? "WH-1",
+    containerNo: state.containers.find((unit) => unit.occupancyStatus === "available")?.no ?? "",
+    startDate: TODAY,
+    endDate: "2027-03-04",
+    monthlyFee: 180000,
+    discount: 0,
+    deposit: 180000,
+    payMethod: "계좌이체",
+  });
 
   const customerNameOf = (contract: Contract) =>
     contract.id === focusedSnapshotContract?.id
@@ -109,6 +137,68 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
     "중도 해지": allContracts.filter((c) => c.status === "중도 해지").length,
   };
 
+  const openCreateContract = () => {
+    const available = state.containers.find((unit) => unit.occupancyStatus === "available");
+    setContractForm({
+      customerId: state.customers[0]?.id ?? "",
+      warehouseId: available?.warehouseId ?? "WH-1",
+      containerNo: available?.no ?? "",
+      startDate: TODAY,
+      endDate: "2027-03-04",
+      monthlyFee: 180000,
+      discount: 0,
+      deposit: 180000,
+      payMethod: "계좌이체",
+    });
+    setContractError("");
+    setContractModal("create");
+  };
+
+  const openEditContract = () => {
+    if (!selected || selectedIsSnapshot) return;
+    setContractForm({
+      customerId: selected.customerId,
+      warehouseId: selected.warehouseId,
+      containerNo: selected.containerNo,
+      startDate: selected.startDate,
+      endDate: selected.endDate,
+      monthlyFee: selected.monthlyFee,
+      discount: selected.discount,
+      deposit: selected.deposit,
+      payMethod: selected.payMethod,
+    });
+    setContractError("");
+    setContractModal("edit");
+  };
+
+  const saveContract = () => {
+    if (!contractForm.customerId || !contractForm.containerNo || !contractForm.startDate || !contractForm.endDate) {
+      setContractError("고객·컨테이너·계약 기간을 모두 선택해 주십시오.");
+      return;
+    }
+    if (contractForm.endDate < contractForm.startDate) {
+      setContractError("계약 종료일은 시작일보다 빠를 수 없습니다.");
+      return;
+    }
+    if (contractModal === "create") {
+      const id = actions.createContract(contractForm);
+      setSelectedId(id);
+      setFilter("all");
+      setKeyword("");
+      setContractResult(`${id} 신규 계약을 등록했습니다.`);
+    } else if (selected) {
+      actions.updateContract(selected.id, contractForm);
+      setContractResult(`${selected.id} 계약 전체 정보를 저장했습니다.`);
+    }
+    setContractModal(null);
+  };
+
+  const containerOptions = state.containers.filter(
+    (unit) =>
+      unit.warehouseId === contractForm.warehouseId &&
+      (unit.occupancyStatus === "available" || unit.contractId === selected?.id),
+  );
+
   return (
     <div className="screen">
       <PageHead
@@ -116,13 +206,19 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
         title="계약"
         lead="계약 기간·이용료·보증금·결제 구분과 입금 이력을 한 곳에서 확인하고, 기간을 바꾸면 만료일과 상태가 함께 다시 계산됩니다."
         actions={
-          <button type="button" className="ghost-button" onClick={() => onNavigate("deposits")}>
-            입금 계약 자동 대조 열기
-          </button>
+          <>
+            <button type="button" className="ghost-button" onClick={() => onNavigate("deposits")}>
+              입금 계약 자동 대조 열기
+            </button>
+            <button type="button" className="primary-button" onClick={openCreateContract}>
+              <Plus size={16} aria-hidden="true" /> 신규 계약
+            </button>
+          </>
         }
       />
 
       <Panel>
+        {contractResult ? <p className="panel-note" role="status" aria-label="계약 처리 결과">{contractResult}</p> : null}
         {focus.containerNo && selected ? (
           <div role="status" aria-label={`${focus.containerNo} 연결 계약`}>
             <NoticeBar
@@ -254,6 +350,13 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
             selected
               ? `${selectedCustomerName} · ${warehouse?.name} ${selected.containerNo}`
               : "계약을 선택하세요."
+          }
+          actions={
+            selected && !selectedIsSnapshot ? (
+              <button type="button" className="ghost-button" onClick={openEditContract}>
+                계약 전체 정보 수정
+              </button>
+            ) : null
           }
         >
           <div role="status" aria-label="계약 상세">
@@ -449,6 +552,85 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
           </Panel>
         </div>
       </PanelRow>
+
+      {contractModal ? (
+        <Modal
+          title={contractModal === "create" ? "신규 계약 등록" : `${selected?.id ?? "계약"} 전체 정보 수정`}
+          description="고객·창고·컨테이너·기간·금액·결제수단을 한 번에 저장하며 배정 원장도 함께 갱신합니다."
+          onClose={() => setContractModal(null)}
+          actions={
+            <>
+              {contractModal === "edit" && selected ? (
+                <button
+                  type="button"
+                  className="danger-button"
+                  disabled={
+                    state.movements.some((item) => item.contractId === selected.id) ||
+                    state.billingItems.some((item) => item.contractId === selected.id) ||
+                    state.documents.some((item) => item.contractId === selected.id)
+                  }
+                  title="입출고·결제·문서 이력이 없는 계약만 삭제할 수 있습니다."
+                  onClick={() => {
+                    actions.deleteContract(selected.id);
+                    setContractResult(`${selected.id} 계약을 삭제하고 컨테이너를 반환했습니다.`);
+                    setSelectedId(state.contracts.find((item) => item.id !== selected.id)?.id ?? "");
+                    setContractModal(null);
+                  }}
+                >
+                  <Trash2 size={16} aria-hidden="true" /> 계약 삭제
+                </button>
+              ) : null}
+              <button type="button" className="ghost-button" onClick={() => setContractModal(null)}>취소</button>
+              <button type="button" className="primary-button" onClick={saveContract}>
+                {contractModal === "create" ? "신규 계약 저장" : "계약 전체 정보 저장"}
+              </button>
+            </>
+          }
+        >
+          <div className="field-grid">
+            <label className="field">
+              <span className="field-label">고객</span>
+              <select value={contractForm.customerId} onChange={(event) => setContractForm((form) => ({ ...form, customerId: event.target.value }))}>
+                {state.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.id}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">창고</span>
+              <select
+                value={contractForm.warehouseId}
+                onChange={(event) => {
+                  const warehouseId = event.target.value;
+                  const first = state.containers.find((unit) => unit.warehouseId === warehouseId && unit.occupancyStatus === "available");
+                  setContractForm((form) => ({ ...form, warehouseId, containerNo: first?.no ?? "" }));
+                }}
+              >
+                {derived.warehouseById.size ? Array.from(derived.warehouseById.values()).map((item) => <option key={item.id} value={item.id}>{item.name}</option>) : null}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">컨테이너</span>
+              <select value={contractForm.containerNo} onChange={(event) => setContractForm((form) => ({ ...form, containerNo: event.target.value }))}>
+                {containerOptions.map((unit) => <option key={unit.id} value={unit.no}>{unit.no} · {unit.size}</option>)}
+              </select>
+            </label>
+            <label className="field"><span className="field-label">계약 시작일</span><input type="date" value={contractForm.startDate} onChange={(event) => setContractForm((form) => ({ ...form, startDate: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">계약 종료일</span><input type="date" value={contractForm.endDate} onChange={(event) => setContractForm((form) => ({ ...form, endDate: event.target.value }))} /></label>
+            <label className="field"><span className="field-label">월 이용료</span><input type="number" value={contractForm.monthlyFee} onChange={(event) => setContractForm((form) => ({ ...form, monthlyFee: Number(event.target.value) }))} /></label>
+            <label className="field"><span className="field-label">할인</span><input type="number" value={contractForm.discount} onChange={(event) => setContractForm((form) => ({ ...form, discount: Number(event.target.value) }))} /></label>
+            <label className="field"><span className="field-label">보증금</span><input type="number" value={contractForm.deposit} onChange={(event) => setContractForm((form) => ({ ...form, deposit: Number(event.target.value) }))} /></label>
+            <label className="field">
+              <span className="field-label">결제 구분</span>
+              <select value={contractForm.payMethod} onChange={(event) => setContractForm((form) => ({ ...form, payMethod: event.target.value as Contract["payMethod"] }))}>
+                <option value="계좌이체">계좌이체</option><option value="카드(결제선생)">카드(결제선생)</option><option value="현금">현금</option>
+              </select>
+            </label>
+          </div>
+          {contractError ? <p className="form-error" role="alert">{contractError}</p> : null}
+          {contractModal === "edit" && selected && (state.movements.some((item) => item.contractId === selected.id) || state.billingItems.some((item) => item.contractId === selected.id) || state.documents.some((item) => item.contractId === selected.id)) ? (
+            <p className="panel-note">입출고·결제·문서 이력이 있어 이 계약은 수정만 가능하며 삭제할 수 없습니다.</p>
+          ) : null}
+        </Modal>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Copy, Download, Eye, Images, Send, Upload } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Copy, Download, ExternalLink, Eye, Images, Send, Upload } from "lucide-react";
 
 import {
   ChipGroup,
@@ -11,7 +11,7 @@ import {
   StateText,
   TableWrap,
 } from "../components/ui";
-import { downloadTextFile } from "../data/download";
+import { downloadElementAsPdf, downloadPhotoArchive } from "../data/download";
 import { TODAY } from "../data/seed";
 import { formatWon, overdueFee } from "../data/utils";
 import { useStore } from "../store";
@@ -40,10 +40,11 @@ const TEMPLATE_INTRO: Record<DocumentTemplate, string> = {
 
 export default function Documents() {
   const { state, derived, actions } = useStore();
-  const [contractId, setContractId] = useState("SC-2026-0288");
+  const [contractId, setContractId] = useState("SC-2026-0640");
   const [template, setTemplate] = useState<DocumentTemplate>("법인");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [documentAction, setDocumentAction] = useState("계약 내용과 사진을 선택해 작업할 수 있습니다.");
+  const documentRef = useRef<HTMLDivElement>(null);
 
   const contract = derived.contractById.get(contractId);
   const customer = contract ? derived.customerOf(contract) : undefined;
@@ -65,7 +66,13 @@ export default function Documents() {
   );
   const contractPhotos = state.movements
     .filter((movement) => movement.contractId === contractId)
-    .flatMap((movement) => movement.photos.map((photo) => ({ ...photo, kind: movement.kind })));
+    .flatMap((movement) => movement.photos.map((photo) => ({
+      ...photo,
+      kind: movement.kind,
+      movementId: movement.id,
+      warehouse: derived.warehouseById.get(movement.warehouseId)?.name ?? movement.warehouseId,
+      containerNo: movement.containerNo,
+    })));
 
   function buildDocumentText() {
     return [
@@ -96,9 +103,12 @@ export default function Documents() {
     ].join("\n");
   }
 
-  function downloadPdf() {
-    downloadTextFile(`${title}.pdf`, buildDocumentText(), "application/pdf");
+  async function downloadPdf() {
+    if (!documentRef.current) return;
+    setDocumentAction("PDF 문서를 생성하고 있습니다.");
+    await downloadElementAsPdf(documentRef.current, `${title}.pdf`);
     actions.createDocument(contractId, template, `${title} (PDF 내려받기)`);
+    setDocumentAction(`${title}.pdf를 내려받고 문서함에 생성 이력을 남겼습니다.`);
   }
 
   async function copyContractContent() {
@@ -110,16 +120,15 @@ export default function Documents() {
     }
   }
 
-  function downloadPhotos() {
-    const manifest = contractPhotos.length
-      ? contractPhotos.map((photo) => `${photo.name} · ${photo.kind} · ${photo.visibility ?? "내부 전용"}`).join("\n")
-      : "이 계약에 연결된 사진이 없습니다.";
-    downloadTextFile(`${contract?.id}_입출고_사진목록.txt`, manifest, "text/plain");
-    setDocumentAction(`${contractPhotos.length}개 사진 묶음 다운로드를 준비했습니다.`);
+  async function downloadPhotos() {
+    if (!contractPhotos.length) return;
+    setDocumentAction(`${contractPhotos.length}개 사진을 ZIP 파일로 묶고 있습니다.`);
+    await downloadPhotoArchive(contractPhotos, `${contract?.id}_입출고_사진.zip`);
+    setDocumentAction(`${contractPhotos.length}개 JPEG 사진과 목록을 ZIP 파일로 내려받았습니다.`);
   }
 
   const documentBody = (
-    <div className="doc-preview">
+    <div className="doc-preview" ref={documentRef}>
       <article className="doc-page">
         <header className="doc-page-head">
           <h3>{TEMPLATE_TITLE[template]}</h3>
@@ -287,14 +296,14 @@ export default function Documents() {
             <Eye size={16} aria-hidden="true" />
             안내문 미리보기
           </button>
-          <button type="button" className="ghost-button" onClick={downloadPdf}>
+          <button type="button" className="ghost-button" onClick={() => void downloadPdf()}>
             <Download size={16} aria-hidden="true" />
             PDF 내려받기
           </button>
           <button type="button" className="ghost-button" onClick={() => void copyContractContent()}>
             <Copy size={16} aria-hidden="true" /> 계약 내용 복사
           </button>
-          <button type="button" className="ghost-button" onClick={downloadPhotos}>
+          <button type="button" className="ghost-button" disabled={contractPhotos.length === 0} title={contractPhotos.length === 0 ? "이 계약에 연결된 사진이 없습니다." : undefined} onClick={() => void downloadPhotos()}>
             <Images size={16} aria-hidden="true" /> 사진 묶음 다운로드
           </button>
           <button
@@ -312,15 +321,27 @@ export default function Documents() {
             <Send size={16} aria-hidden="true" />
             안내문·세부 내역서 동시 발송
           </button>
+          <label className="ghost-button file-button">
+            <Upload size={16} aria-hidden="true" />
+            계약서 파일 선택
+            <input
+              type="file"
+              className="visually-hidden"
+              aria-label="계약서 파일 선택"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) actions.uploadContractFile(contractId, file.name);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
           <button
             type="button"
-            className="ghost-button"
-            onClick={() =>
-              actions.uploadContractFile(contractId, `${customer?.name} 보관 계약서 v2.pdf`)
-            }
+            className="quiet-button"
+            onClick={() => actions.uploadContractFile(contractId, `${contractId}_계약서_예시.pdf`)}
           >
-            <Upload size={16} aria-hidden="true" />
-            계약서 파일 업로드
+            계약서 예시 등록
           </button>
         </div>
         <p className="panel-note" role="status" aria-label="문서 작업 결과">{documentAction}</p>
@@ -395,6 +416,7 @@ export default function Documents() {
           <Panel
             title="고객 열람 페이지 미리보기"
             description="고객은 문자로 받은 링크에서 아래 화면만 봅니다. 로그인 없이 열람하며 개인정보는 최소로 표시합니다."
+            actions={<a className="ghost-button" href={`?public=notice&contract=${encodeURIComponent(contractId)}`}><ExternalLink size={15} aria-hidden="true" /> 고객 공지 페이지 열기</a>}
           >
             <div className="phone-column">
               <div className="phone-device">
@@ -432,12 +454,8 @@ export default function Documents() {
                       <strong>입고 사진 {contractPhotos.filter((photo) => photo.visibility === "고객 열람").length}장</strong>
                       <span data-density="support">고객 열람으로 분류된 사진만 이 링크에 표시합니다.</span>
                     </div>
-                    <a
-                      className="phone-action"
-                      href="#chatbot-notice"
-                      onClick={(event) => event.preventDefault()}
-                    >
-                      챗봇으로 연장 신청
+                    <a className="phone-action" href={`?public=notice&contract=${encodeURIComponent(contractId)}`}>
+                      고객 공지 전체 화면 열기
                     </a>
                   </div>
                   <span className="phone-home-indicator" aria-hidden="true" />
@@ -459,7 +477,7 @@ export default function Documents() {
               <button type="button" className="ghost-button" onClick={() => setPreviewOpen(false)}>
                 닫기
               </button>
-              <button type="button" className="primary-button" onClick={downloadPdf}>
+              <button type="button" className="primary-button" onClick={() => void downloadPdf()}>
                 <Download size={16} aria-hidden="true" />
                 이 문서 PDF 내려받기
               </button>

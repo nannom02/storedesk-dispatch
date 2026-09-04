@@ -32,17 +32,25 @@ const PERMISSIONS = [
   { name: "권한 등급 변경", admin: false, superOnly: true },
 ];
 
+const FEATURE_PERMISSIONS = ["고객", "계약", "입출고", "운송", "정산", "알림", "문서", "설정"];
+
 export default function AuditLog() {
   const { state, actions } = useStore();
   const [filter, setFilter] = useState("all");
+  const [actorFilter, setActorFilter] = useState("all");
   const [staffOpen, setStaffOpen] = useState(false);
   const [staffResult, setStaffResult] = useState("");
-  const [staffForm, setStaffForm] = useState({ name: "박서연", role: "관리자" as StaffProfile["role"], profile: "고객·계약·알림" });
+  const [staffForm, setStaffForm] = useState({ name: "박서연", role: "관리자" as StaffProfile["role"], profile: "고객·계약·알림", permissions: ["고객", "계약", "알림", "문서"] });
 
   const rows = useMemo(
     () =>
-      state.auditEntries.filter((entry) => (filter === "all" ? true : entry.category === filter)),
-    [state.auditEntries, filter],
+      state.auditEntries.filter(
+        (entry) =>
+          (state.role === "최고관리자" || entry.actor === "윤서진") &&
+          (filter === "all" || entry.category === filter) &&
+          (actorFilter === "all" || entry.actor === actorFilter),
+      ),
+    [state.auditEntries, state.role, filter, actorFilter],
   );
 
   const isSuper = state.role === "최고관리자";
@@ -57,13 +65,13 @@ export default function AuditLog() {
       />
 
       <Panel title="직원·접근 프로필" description="직원 등록, 역할 지정, 접근 프로필 발급 이력을 한 원장으로 관리합니다.">
-        {staffResult ? <p role="status" aria-label="직원 프로필 발급 결과" className="panel-note">{staffResult}</p> : null}
+        {staffResult ? <p role="status" aria-label="직원 프로필 처리 결과" className="panel-note">{staffResult}</p> : null}
         <TableWrap footer={<><span>직원 {state.staffProfiles.length}명 · 활성 {state.staffProfiles.filter((staff) => staff.status === "활성").length}명</span><span>최근 프로필 발급 {state.staffProfiles[0]?.issuedAt ?? "-"}</span></>}>
           <table className="data-table">
-            <thead><tr><th scope="col">직원</th><th scope="col">역할</th><th scope="col">접근 프로필</th><th scope="col">발급 이력</th><th scope="col">상태</th></tr></thead>
+            <thead><tr><th scope="col">직원</th><th scope="col">역할</th><th scope="col">접근 프로필</th><th scope="col">기능 권한</th><th scope="col">발급 이력</th><th scope="col">상태</th><th scope="col" aria-label="행 작업" /></tr></thead>
             <tbody>
               {state.staffProfiles.map((staff) => (
-                <tr key={staff.id}><td data-label="직원"><strong>{staff.name}</strong><span className="cell-sub" data-density="support">{staff.id}</span></td><td data-label="역할">{staff.role}</td><td data-label="접근 프로필">{staff.profile}</td><td data-label="발급 이력">{staff.issuanceHistory.join(" · ")}<span className="cell-sub" data-density="support">발급자 {staff.issuedBy}</span></td><td data-label="상태"><StateText tone={staff.status === "활성" ? "ok" : "neutral"}>{staff.status}</StateText></td></tr>
+                <tr key={staff.id}><td data-label="직원"><strong>{staff.name}</strong><span className="cell-sub" data-density="support">{staff.id}</span></td><td data-label="역할">{staff.role}</td><td data-label="접근 프로필">{staff.profile}</td><td data-label="기능 권한">{staff.permissions.length ? staff.permissions.join(" · ") : "접근 없음"}</td><td data-label="발급 이력">{staff.issuanceHistory.join(" · ")}<span className="cell-sub" data-density="support">발급자 {staff.issuedBy}</span></td><td data-label="상태"><StateText tone={staff.status === "활성" ? "ok" : "neutral"}>{staff.status}</StateText></td><td data-label="작업"><button type="button" className="quiet-button" aria-label={`${staff.name} 접근 프로필 회수`} disabled={staff.status === "회수" || staff.role === "최고관리자"} title={staff.role === "최고관리자" ? "최고관리자 프로필은 회수할 수 없습니다." : staff.status === "회수" ? "이미 회수된 프로필입니다." : undefined} onClick={() => { actions.revokeStaffProfile(staff.id); setStaffResult(`${staff.name} 접근 프로필을 회수했습니다.`); }}>{staff.status === "회수" ? "회수 완료" : "접근 프로필 회수"}</button></td></tr>
               ))}
             </tbody>
           </table>
@@ -146,7 +154,7 @@ export default function AuditLog() {
                 이력에 남아 되돌릴 근거가 됩니다.
               </p>
             </div>
-            <button type="button" className="notice-action" disabled={isSuper}>
+            <button type="button" className="notice-action" disabled>
               {isSuper ? "현재 등급에서 삭제 가능" : "권한 부족으로 삭제 불가"}
             </button>
           </div>
@@ -155,6 +163,12 @@ export default function AuditLog() {
         <Panel title="처리 이력" description="대상·행위·처리자·시각이 함께 남습니다.">
           <div className="filter-bar">
             <ChipGroup label="활동 유형" options={FILTERS} value={filter} onChange={setFilter} />
+            <ChipGroup
+              label="처리자"
+              options={(isSuper ? ["all", ...Array.from(new Set(state.auditEntries.map((entry) => entry.actor)))] : ["윤서진"]).map((actor) => ({ id: actor, label: actor === "all" ? "전체 처리자" : actor }))}
+              value={isSuper ? actorFilter : "윤서진"}
+              onChange={setActorFilter}
+            />
             <span className="panel-note" role="status" aria-label="처리 이력 요약">
               전체 {state.auditEntries.length}건 중 {rows.length}건 표시
             </span>
@@ -217,7 +231,7 @@ export default function AuditLog() {
                 className="primary-button"
                 disabled={!staffForm.name.trim() || !staffForm.profile.trim()}
                 onClick={() => {
-                  const staffId = actions.registerStaffProfile({ name: staffForm.name.trim(), role: staffForm.role, profile: staffForm.profile.trim() });
+                  const staffId = actions.registerStaffProfile({ name: staffForm.name.trim(), role: staffForm.role, profile: staffForm.profile.trim(), permissions: staffForm.permissions });
                   setStaffResult(`${staffId} · ${staffForm.name.trim()} 직원을 등록하고 ${staffForm.profile.trim()} 프로필을 발급했습니다.`);
                   setStaffOpen(false);
                 }}
@@ -229,6 +243,14 @@ export default function AuditLog() {
             <label className="field"><span className="field-label">직원명</span><input value={staffForm.name} onChange={(event) => setStaffForm((current) => ({ ...current, name: event.target.value }))} /></label>
             <label className="field"><span className="field-label">역할</span><select value={staffForm.role} onChange={(event) => setStaffForm((current) => ({ ...current, role: event.target.value as StaffProfile["role"] }))}><option value="최고관리자">최고관리자</option><option value="관리자">관리자</option><option value="창고 현장 담당자">창고 현장 담당자</option></select></label>
             <label className="field" data-span="full"><span className="field-label">접근 프로필</span><select value={staffForm.profile} onChange={(event) => setStaffForm((current) => ({ ...current, profile: event.target.value }))}><option value="운영·정산 전체">운영·정산 전체</option><option value="고객·계약·알림">고객·계약·알림</option><option value="입출고·창고 조회">입출고·창고 조회</option></select></label>
+          </div>
+          <div className="instruction-fields" role="group" aria-label="기능별 접근 권한">
+            {FEATURE_PERMISSIONS.map((permission) => (
+              <label key={permission}>
+                <input type="checkbox" checked={staffForm.permissions.includes(permission)} onChange={(event) => setStaffForm((current) => ({ ...current, permissions: event.target.checked ? [...current.permissions, permission] : current.permissions.filter((item) => item !== permission) }))} />
+                {permission}
+              </label>
+            ))}
           </div>
         </Modal>
       ) : null}

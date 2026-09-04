@@ -1,4 +1,5 @@
-import { CheckCircle2, PlayCircle, Wrench } from "lucide-react";
+import { useRef, useState } from "react";
+import { CheckCircle2, Download, PlayCircle, Wrench } from "lucide-react";
 
 import {
   DescGrid,
@@ -11,10 +12,13 @@ import {
   TableWrap,
 } from "../components/ui";
 import { migrationSummary } from "../data/seed";
+import { downloadElementAsPdf } from "../data/download";
 import { useStore } from "../store";
 
 export default function Migration() {
   const { state, actions } = useStore();
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [reportExported, setReportExported] = useState(false);
 
   const openIssues = state.migrationIssues.filter((issue) => !issue.resolved);
   const errorRows = openIssues.reduce((sum, issue) => sum + issue.count, 0);
@@ -27,10 +31,17 @@ export default function Migration() {
         title="데이터 이관·검증"
         lead="2026년 계약 장부 662행과 출고 장부 1,020행을 원문 보존 상태로 검증합니다. 완전 중복 25건, 연락처·날짜·창고번호 규칙과 금액 합계를 함께 확인합니다."
         actions={
-          <button type="button" className="primary-button" onClick={actions.runMigrationValidation}>
-            <PlayCircle size={16} aria-hidden="true" />
-            검증 실행
-          </button>
+          <>
+            <button type="button" className="ghost-button" disabled={!state.migrationRunAt} title={!state.migrationRunAt ? "먼저 검증을 실행해 주십시오." : undefined} onClick={async () => {
+              if (!reportRef.current) return;
+              await downloadElementAsPdf(reportRef.current, "StoreDesk_2026년_장부_이관_검증_결과서.pdf");
+              actions.recordMigrationReportExport();
+              setReportExported(true);
+            }}><Download size={16} aria-hidden="true" /> 검증 결과서 내려받기</button>
+            <button type="button" className="primary-button" onClick={actions.runMigrationValidation}>
+              <PlayCircle size={16} aria-hidden="true" /> 검증 실행
+            </button>
+          </>
         }
       />
 
@@ -59,7 +70,8 @@ export default function Migration() {
       )}
 
       <PanelRow columns="7-5">
-        <Panel
+        <div ref={reportRef}>
+          <Panel
           title="검증 결과"
           description={`대상 파일 ${migrationSummary.fileName} · 마지막 검증 ${state.migrationRunAt ?? "없음"}`}
         >
@@ -151,7 +163,9 @@ export default function Migration() {
               오류 행 수정 반영
             </button>
           ) : null}
-        </Panel>
+          {reportExported ? <p className="panel-note" role="status" aria-label="이관 검증 결과서 내보내기 상태">이관 검증 결과서 PDF를 내려받았습니다.</p> : null}
+          </Panel>
+        </div>
 
         <div className="stack">
           <Panel title="이관 절차" description="착수 후 실제 이관은 아래 순서로 진행합니다.">

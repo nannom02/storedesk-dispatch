@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Check, History, Pencil, Plus, Search, Send, Truck } from "lucide-react";
+import { Check, ExternalLink, History, Pencil, Plus, Search, Send, Trash2, Truck } from "lucide-react";
 
 import { DescGrid, Modal, NoticeBar, PageHead, Panel, PanelRow, StateText, TableWrap } from "../components/ui";
 import { formatWon } from "../data/utils";
+import type { WorkInstruction } from "../data/types";
 import { useStore } from "../store";
 
 const INSTRUCTION_FIELDS = [
@@ -12,6 +13,12 @@ const INSTRUCTION_FIELDS = [
   "출발지·도착지",
   "수취인·연락처",
   "엘리베이터 여부",
+];
+
+const RECIPIENT_LABELS: WorkInstruction["recipients"][number]["label"][] = [
+  "운영팀",
+  "창고팀",
+  "운송업체",
 ];
 
 const NEW_VENDOR = {
@@ -34,6 +41,7 @@ export default function TransportOperations() {
   const [transportCost, setTransportCost] = useState(String(movement?.transportCost ?? 180000));
   const [ladderCost, setLadderCost] = useState(String(movement?.ladderTruckCost ?? 90000));
   const [fields, setFields] = useState<string[]>(INSTRUCTION_FIELDS);
+  const [recipients, setRecipients] = useState<WorkInstruction["recipients"][number]["label"][]>(RECIPIENT_LABELS);
   const [vendorSourceFeedback, setVendorSourceFeedback] = useState("");
   const [costFeedback, setCostFeedback] = useState("");
   const [vendorEditorOpen, setVendorEditorOpen] = useState(false);
@@ -143,7 +151,7 @@ export default function TransportOperations() {
       <PanelRow columns="7-5">
         <Panel
           title="운송업체 찾기"
-          description="업체명·담당자·전화·사업자번호·서비스 지역으로 검색합니다."
+          description="업체명·담당자·전화·사업자번호·활동 지역으로 검색합니다."
         >
           <label className="search-field transport-search">
             <Search size={16} aria-hidden="true" />
@@ -156,7 +164,7 @@ export default function TransportOperations() {
                 <tr>
                   <th scope="col">업체</th>
                   <th scope="col">담당자·연락처</th>
-                  <th scope="col">서비스 지역</th>
+                  <th scope="col">활동 지역</th>
                   <th scope="col">수행 실적</th>
                   <th scope="col" data-priority="low">운영 메모</th>
                   <th scope="col" aria-label="선택" />
@@ -167,7 +175,7 @@ export default function TransportOperations() {
                   <tr key={item.id} aria-selected={item.id === vendorId}>
                     <td data-label="업체"><strong>{item.name}</strong><span className="cell-sub">{item.businessNo}</span></td>
                     <td data-label="담당자·연락처">{item.manager}<span className="cell-sub">{item.phone}</span></td>
-                    <td data-label="서비스 지역">{item.serviceAreas.join(" · ")}</td>
+                    <td data-label="활동 지역">{item.serviceAreas.join(" · ")}</td>
                     <td data-label="수행 실적">{item.completedJobs}건<span className="cell-sub">정시 {item.onTimeRate}%</span></td>
                     <td data-label="운영 메모" data-priority="low">{item.note}</td>
                     <td data-label="선택">
@@ -230,17 +238,17 @@ export default function TransportOperations() {
         <div role="status" aria-label="업체별 수행 이력">
           <TableWrap footer={<><span>{vendorHistory.length}건 표시</span><span>운송비·리프트 비용 건별 원장</span></>}>
             <table className="data-table">
-              <thead><tr><th scope="col">작업</th><th scope="col">구분</th><th scope="col">완료 시각</th><th scope="col">운송 구간</th><th scope="col" className="numeric">운송비</th><th scope="col" className="numeric">리프트</th><th scope="col">결과</th></tr></thead>
+              <thead><tr><th scope="col">작업</th><th scope="col">구분</th><th scope="col">기록 시각</th><th scope="col">운송 구간</th><th scope="col" className="numeric">운송비</th><th scope="col" className="numeric">리프트</th><th scope="col">결과</th></tr></thead>
               <tbody>
                 {vendorHistory.map((record) => (
                   <tr key={record.id}>
                     <td data-label="작업"><strong>{record.movementId}</strong></td>
                     <td data-label="구분">{record.kind}</td>
-                    <td data-label="완료 시각" className="date-cell">{record.completedAt}</td>
+                    <td data-label="기록 시각" className="date-cell">{record.completedAt}</td>
                     <td data-label="운송 구간">{record.route}</td>
                     <td data-label="운송비" className="numeric amount tabular">{formatWon(record.transportCost)}</td>
                     <td data-label="리프트" className="numeric amount tabular">{formatWon(record.liftCost)}</td>
-                    <td data-label="결과"><StateText tone={record.result === "정시 완료" ? "ok" : "warn"}>{record.result}</StateText></td>
+                    <td data-label="결과"><StateText tone={record.result === "정시 완료" ? "ok" : record.result === "비용 기록" ? "info" : "warn"}>{record.result}</StateText></td>
                   </tr>
                 ))}
                 {vendorHistory.length === 0 ? <tr><td colSpan={7}>아직 완료된 운송 이력이 없습니다.</td></tr> : null}
@@ -274,7 +282,7 @@ export default function TransportOperations() {
           </div>
         </Panel>
 
-        <Panel title="작업지시 만들기" description="실제로 전달할 정보만 선택합니다. 수신자는 운영팀·창고팀·운송업체로 고정됩니다.">
+        <Panel title="작업지시 만들기" description="실제로 전달할 정보와 담당자를 선택하면 읽기 전용 작업지시 주소가 함께 생성됩니다.">
           <div className="instruction-fields" role="group" aria-label="작업지시 전달 항목">
             {INSTRUCTION_FIELDS.map((field) => (
               <label key={field}>
@@ -287,6 +295,26 @@ export default function TransportOperations() {
               </label>
             ))}
           </div>
+          <div className="instruction-fields" role="group" aria-label="작업지시 수신 담당자">
+            {RECIPIENT_LABELS.map((label) => {
+              const target =
+                label === "운영팀"
+                  ? "윤서진 · 운영 담당"
+                  : label === "창고팀"
+                    ? `${warehouse?.managerName ?? movement?.driver ?? "담당자 확인"} · ${movement?.team ?? "창고팀"}`
+                    : `${vendor?.manager ?? movement?.driver ?? "담당자 확인"} · ${vendor?.phone ?? "연락처 확인"}`;
+              return (
+                <label key={label}>
+                  <input
+                    type="checkbox"
+                    checked={recipients.includes(label)}
+                    onChange={(event) => setRecipients((current) => event.target.checked ? [...current, label] : current.filter((item) => item !== label))}
+                  />
+                  {label} · {target}
+                </label>
+              );
+            })}
+          </div>
           <div className="instruction-preview">
             <span className="panel-note">읽기 전용 운송업체 미리보기</span>
             <strong>{movement?.kind ?? "입출고"} 작업지시 · {movement?.containerNo ?? "-"}</strong>
@@ -294,8 +322,8 @@ export default function TransportOperations() {
             <p>수취인 {movement?.recipient ?? customer?.name ?? "확인 필요"} · {movement?.recipientPhone ?? customer?.contact ?? "연락처 확인 필요"}</p>
             <span className="support-text">운송업체는 이 정보를 열람만 할 수 있으며 수정·입력 기능은 제공하지 않습니다.</span>
           </div>
-          <button type="button" className="primary-button" disabled={!movement || fields.length === 0} onClick={() => movement && actions.sendWorkInstruction(movement.id, fields)}>
-            <Send size={16} aria-hidden="true" /> 3자 작업지시 발송
+          <button type="button" className="primary-button" disabled={!movement || fields.length === 0 || recipients.length === 0} onClick={() => movement && actions.sendWorkInstruction(movement.id, fields, recipients)}>
+            <Send size={16} aria-hidden="true" /> 선택 담당자에게 작업지시 발송
           </button>
         </Panel>
       </PanelRow>
@@ -306,9 +334,9 @@ export default function TransportOperations() {
             {histories.length ? <ul className="record-list">{histories.map((item) => <li key={item.id}><div className="record-list-head"><strong>{item.vendorName}</strong><StateText tone="info">{item.assignedAt}</StateText></div><p>{item.reason} · {item.assignedBy}</p></li>)}</ul> : <p className="panel-note">아직 배정 이력이 없습니다.</p>}
           </div>
         </Panel>
-        <Panel title="발송 이력" description="한 번의 작업지시가 세 수신자에게 전달되었는지 확인합니다.">
+        <Panel title="발송 이력" description="선택한 담당자별 전달 상태와 외부 읽기 전용 지시서를 확인합니다.">
           <div role="status" aria-label="발송 이력">
-            {instructions.length ? <ul className="record-list">{instructions.map((item) => <li key={item.id}><div className="record-list-head"><strong>{item.id} · {item.vendorName}</strong><span className="record-meta">{item.sentAt}</span></div><p>{item.fields.join(" · ")}</p><div className="recipient-statuses">{item.recipients.map((recipient) => <span key={recipient.label}><Check size={14} aria-hidden="true" /> {recipient.label} {recipient.status}</span>)}</div></li>)}</ul> : <p className="panel-note">아직 발송한 작업지시가 없습니다.</p>}
+            {instructions.length ? <ul className="record-list">{instructions.map((item) => <li key={item.id}><div className="record-list-head"><strong>{item.id} · {item.vendorName}</strong><span className="record-meta">{item.sentAt}</span></div><p>{item.fields.join(" · ")}</p><div className="recipient-statuses">{item.recipients.map((recipient) => <span key={recipient.label}><Check size={14} aria-hidden="true" /> {recipient.label} · {recipient.target} · {recipient.status}</span>)}</div><a className="quiet-button" href={`?public=work-order&id=${encodeURIComponent(item.id)}`}><ExternalLink size={14} aria-hidden="true" /> {item.id} 읽기 전용 지시서 열기</a></li>)}</ul> : <p className="panel-note">아직 발송한 작업지시가 없습니다.</p>}
           </div>
         </Panel>
       </PanelRow>
@@ -316,10 +344,25 @@ export default function TransportOperations() {
       {vendorEditorOpen ? (
         <Modal
           title={editingVendorId ? "운송업체 기준정보 수정" : "신규 운송업체 등록"}
-          description="업체명·담당자·연락처·사업자번호·서비스 지역·운영 메모를 기준정보로 저장합니다."
+          description="업체명·담당자·연락처·사업자번호·활동 지역·운영 메모를 기준정보로 저장합니다."
           onClose={() => setVendorEditorOpen(false)}
           actions={
             <>
+              {editingVendorId ? (
+                <button
+                  type="button"
+                  className="danger-button"
+                  disabled={state.movements.some((item) => item.vendorId === editingVendorId)}
+                  title="입출고 배정 이력이 없는 운송업체만 삭제할 수 있습니다."
+                  onClick={() => {
+                    actions.deleteTransportVendor(editingVendorId);
+                    setVendorFeedback(`${vendorForm.name} 운송업체를 삭제했습니다.`);
+                    setVendorEditorOpen(false);
+                  }}
+                >
+                  <Trash2 size={16} aria-hidden="true" /> 운송업체 삭제
+                </button>
+              ) : null}
               <button type="button" className="ghost-button" onClick={() => setVendorEditorOpen(false)}>취소</button>
               <button type="button" className="primary-button" onClick={saveVendor}>
                 {editingVendorId ? "운송업체 수정 저장" : "운송업체 등록"}
@@ -332,7 +375,7 @@ export default function TransportOperations() {
             <label className="field"><span className="field-label">담당자</span><input value={vendorForm.manager} onChange={(event) => setVendorForm((current) => ({ ...current, manager: event.target.value }))} /></label>
             <label className="field"><span className="field-label">연락처</span><input value={vendorForm.phone} onChange={(event) => setVendorForm((current) => ({ ...current, phone: event.target.value }))} /></label>
             <label className="field"><span className="field-label">사업자번호</span><input value={vendorForm.businessNo} onChange={(event) => setVendorForm((current) => ({ ...current, businessNo: event.target.value }))} /></label>
-            <label className="field" data-span="full"><span className="field-label">서비스 지역</span><input value={vendorForm.serviceAreas} onChange={(event) => setVendorForm((current) => ({ ...current, serviceAreas: event.target.value }))} /><span className="support-text" data-density="support">쉼표로 지역을 구분합니다.</span></label>
+            <label className="field" data-span="full"><span className="field-label">활동 지역</span><input value={vendorForm.serviceAreas} onChange={(event) => setVendorForm((current) => ({ ...current, serviceAreas: event.target.value }))} /><span className="support-text" data-density="support">쉼표로 지역을 구분합니다.</span></label>
             <label className="field" data-span="full"><span className="field-label">운영 메모</span><textarea value={vendorForm.note} onChange={(event) => setVendorForm((current) => ({ ...current, note: event.target.value }))} /></label>
           </div>
         </Modal>

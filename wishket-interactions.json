@@ -376,8 +376,11 @@
     {
       "requirementId": "INT-BILL-BATCH",
       "screen": "결제·세금계산서",
-      "entry": [{ "role": "button", "name": "결제·세금계산서" }],
-      "control": { "role": "button", "name": "선택 건 일괄 발행" },
+      "entry": [
+        { "role": "button", "name": "결제·세금계산서" },
+        { "role": "button", "name": "선택 건 발행 승인" }
+      ],
+      "control": { "role": "button", "name": "승인 건 일괄 발행" },
       "expected": { "role": "status", "name": "청구 발행 요약" }
     },
     {
@@ -419,7 +422,7 @@
       "requirementId": "INT-DOC-UPLOAD",
       "screen": "계약 안내문·문서 보관",
       "entry": [{ "role": "button", "name": "계약 안내문·문서 보관" }],
-      "control": { "role": "button", "name": "계약서 파일 업로드" },
+      "control": { "role": "button", "name": "계약서 예시 등록" },
       "expected": { "role": "status", "name": "문서 보관함 요약" }
     },
     {
@@ -507,7 +510,7 @@
         { "role": "button", "name": "직원·프로필 등록" }
       ],
       "control": { "role": "button", "name": "직원 등록·프로필 발급" },
-      "expected": { "role": "status", "name": "직원 프로필 발급 결과" }
+      "expected": { "role": "status", "name": "직원 프로필 처리 결과" }
     },
     {
       "requirementId": "INT-SET-RULE",
@@ -569,13 +572,13 @@
       "screen": "운송 배정·작업지시",
       "entry": [{ "role": "button", "name": "운송 배정·작업지시" }],
       "control": { "role": "button", "name": "비용 저장" },
-      "expected": { "role": "status", "name": "작업지시 요약" }
+      "expected": { "role": "status", "name": "업체별 수행 이력" }
     },
     {
       "requirementId": "INT-TR-SEND",
       "screen": "운송 배정·작업지시",
       "entry": [{ "role": "button", "name": "운송 배정·작업지시" }],
-      "control": { "role": "button", "name": "3자 작업지시 발송" },
+      "control": { "role": "button", "name": "선택 담당자에게 작업지시 발송" },
       "expected": { "role": "status", "name": "발송 이력" }
     },
     {
@@ -615,6 +618,126 @@
       "entry": [{ "role": "button", "name": "환경 설정" }],
       "control": { "role": "button", "name": "보존 정책 저장" },
       "expected": { "role": "status", "name": "보존 정책 저장 결과" }
+    },
+    {
+      "requirementId": "INT-CUST-ATTACH",
+      "screen": "고객·상담",
+      "entry": [{ "role": "button", "name": "고객·상담" }],
+      "control": { "role": "button", "name": "사업자등록증 예시 등록" },
+      "expected": { "role": "status", "name": "고객 첨부파일 원장" }
+    },
+    {
+      "requirementId": "INT-CT-CREATE",
+      "screen": "계약",
+      "entry": [
+        { "role": "button", "name": "계약" },
+        { "role": "button", "name": "신규 계약" }
+      ],
+      "control": { "role": "button", "name": "신규 계약 저장" },
+      "expected": { "role": "status", "name": "계약 처리 결과" }
+    },
+    {
+      "requirementId": "INT-CT-UPDATE",
+      "screen": "계약",
+      "entry": [
+        { "role": "button", "name": "계약" },
+        { "role": "button", "name": "계약 전체 정보 수정" }
+      ],
+      "control": { "role": "button", "name": "계약 전체 정보 저장" },
+      "expected": { "role": "status", "name": "계약 처리 결과" }
+    },
+    {
+      "requirementId": "INT-CT-DELETE",
+      "screen": "계약",
+      "entry": [
+        { "role": "button", "name": "계약" },
+        { "role": "button", "name": "신규 계약" },
+        { "role": "button", "name": "신규 계약 저장" },
+        { "role": "button", "name": "계약 전체 정보 수정" }
+      ],
+      "control": { "role": "button", "name": "계약 삭제" },
+      "expected": { "role": "status", "name": "계약 처리 결과" }
+    },
+    {
+      "requirementId": "INT-TR-DELETE",
+      "screen": "운송 배정·작업지시",
+      "entry": [
+        { "role": "button", "name": "운송 배정·작업지시" },
+        { "role": "button", "name": "신규 운송업체 등록" },
+        { "role": "button", "name": "운송업체 등록" },
+        { "role": "button", "name": "한빛로지스 수정" }
+      ],
+      "control": { "role": "button", "name": "운송업체 삭제" },
+      "expected": { "role": "status", "name": "운송업체 기준정보 처리 결과" }
+    },
+    {
+      "requirementId": "INT-TR-PUBLIC",
+      "screen": "운송 배정·작업지시",
+      "entry": [{ "role": "button", "name": "운송 배정·작업지시" }],
+      "control": { "role": "link", "name": "WO-260904-01 읽기 전용 지시서 열기" },
+      "expected": { "role": "heading", "name": "출고 작업지시서" }
+    },
+    {
+      "requirementId": "INT-BILL-CANCEL",
+      "screen": "결제·세금계산서",
+      "entry": [
+        { "role": "button", "name": "결제·세금계산서" },
+        { "role": "button", "name": "BL-2609-001 카드 결제 요청" }
+      ],
+      "control": { "role": "button", "name": "BL-2609-001 카드 승인 취소" },
+      "expected": { "role": "status", "name": "선택 청구 처리 상태" }
+    },
+    {
+      "requirementId": "INT-BILL-APPROVE",
+      "screen": "결제·세금계산서",
+      "entry": [{ "role": "button", "name": "결제·세금계산서" }],
+      "control": { "role": "button", "name": "선택 건 발행 승인" },
+      "expected": { "role": "status", "name": "청구 발행 요약" }
+    },
+    {
+      "requirementId": "INT-BILL-RECURRING",
+      "screen": "결제·세금계산서",
+      "entry": [{ "role": "button", "name": "결제·세금계산서" }],
+      "control": { "role": "button", "name": "BL-2609-001 정기 청구 중지" },
+      "expected": { "role": "status", "name": "정기 청구 설정 원장" }
+    },
+    {
+      "requirementId": "INT-DOC-PUBLIC",
+      "screen": "계약 안내문·문서 보관",
+      "entry": [{ "role": "button", "name": "계약 안내문·문서 보관" }],
+      "control": { "role": "link", "name": "고객 공지 페이지 열기" },
+      "expected": { "role": "heading", "name": "보관 계약 안내" }
+    },
+    {
+      "requirementId": "INT-NOTI-EXPIRY",
+      "screen": "알림 발송·이력",
+      "entry": [{ "role": "button", "name": "알림 발송·이력" }],
+      "control": { "role": "button", "name": "만료 당일 미납 재안내 발송" },
+      "expected": { "role": "status", "name": "발송 이력 요약" }
+    },
+    {
+      "requirementId": "INT-MIG-REPORT",
+      "screen": "데이터 이관·검증",
+      "entry": [
+        { "role": "button", "name": "데이터 이관·검증" },
+        { "role": "button", "name": "검증 실행" }
+      ],
+      "control": { "role": "button", "name": "검증 결과서 내려받기" },
+      "expected": { "role": "status", "name": "이관 검증 결과서 내보내기 상태" }
+    },
+    {
+      "requirementId": "INT-LOG-ACTOR",
+      "screen": "권한·활동 로그",
+      "entry": [{ "role": "button", "name": "권한·활동 로그" }],
+      "control": { "role": "button", "name": "남기훈" },
+      "expected": { "role": "status", "name": "처리 이력 요약" }
+    },
+    {
+      "requirementId": "INT-LOG-REVOKE",
+      "screen": "권한·활동 로그",
+      "entry": [{ "role": "button", "name": "권한·활동 로그" }],
+      "control": { "role": "button", "name": "김도현 접근 프로필 회수" },
+      "expected": { "role": "status", "name": "직원 프로필 처리 결과" }
     }
   ]
 }

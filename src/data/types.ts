@@ -196,7 +196,7 @@ export interface TransportServiceRecord {
   route: string;
   transportCost: number;
   liftCost: number;
-  result: "정시 완료" | "지연 완료";
+  result: "비용 기록" | "정시 완료" | "지연 완료";
 }
 
 export interface TransportAssignmentHistory {
@@ -215,7 +215,11 @@ export interface WorkInstruction {
   vendorId: string;
   vendorName: string;
   fields: string[];
-  recipients: { label: "운영팀" | "창고팀" | "운송업체"; status: "발송 완료" }[];
+  recipients: {
+    label: "운영팀" | "창고팀" | "운송업체";
+    target: string;
+    status: "발송 완료";
+  }[];
   sentBy: string;
   sentAt: string;
 }
@@ -307,6 +311,7 @@ export interface StaffProfile {
   name: string;
   role: AuditEntry["role"];
   profile: string;
+  permissions: string[];
   status: "활성" | "회수";
   issuedAt: string;
   issuedBy: string;

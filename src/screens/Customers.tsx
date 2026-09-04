@@ -331,7 +331,33 @@ export default function Customers() {
           </Panel>
 
           <Panel title="첨부파일" description="사업자등록증·신분증 사본 등 계약 근거 자료입니다.">
-            <ul className="record-list">
+            {selected ? (
+              <div className="page-actions">
+                <label className="ghost-button file-button">
+                  <Paperclip size={15} aria-hidden="true" />
+                  고객 첨부파일 선택
+                  <input
+                    type="file"
+                    className="visually-hidden"
+                    aria-label="고객 첨부파일 선택"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) actions.uploadCustomerAttachment(selected.id, file.name);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="quiet-button"
+                  onClick={() => actions.uploadCustomerAttachment(selected.id, "사업자등록증_예시.pdf")}
+                >
+                  사업자등록증 예시 등록
+                </button>
+              </div>
+            ) : null}
+            <ul className="record-list" role="status" aria-label="고객 첨부파일 원장">
               {(selected?.attachments ?? []).map((file) => (
                 <li key={file.name}>
                   <div className="record-list-head">
