@@ -464,7 +464,7 @@ function Shell() {
         </div>
 
         <div className="sidebar-scroll" id="prototype-navigation" ref={navScrollRef}>
-          <nav aria-label="업무 화면">
+          <nav aria-label="프로토타입 화면">
             {groups.map((entry) => (
               <div className="sidebar-group" key={entry.group}>
                 <p className="sidebar-group-label" data-density="meta">
