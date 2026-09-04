@@ -133,13 +133,13 @@ export default function TransportOperations() {
   return (
     <div className="screen">
       <PageHead
-        kicker="운영 · 재공고 추가 범위"
+        kicker="운영 · 운송 연계"
         title="운송 배정·작업지시"
         lead="자체 이사팀과 외부 계약업체를 입출고 건에 배정하고, 고객·상담·희망 시각을 운영팀·창고팀·운송업체에 한 번에 전달합니다. 운송업체 화면은 로그인 없는 읽기 전용입니다."
         actions={<button type="button" className="ghost-button" onClick={openNewVendor}><Plus size={16} aria-hidden="true" /> 신규 운송업체 등록</button>}
       />
 
-      <NoticeBar variant="review" title="이번 공고에서 확정된 변경 범위">
+      <NoticeBar variant="review" title="운송 운영의 핵심 관리 범위">
         기존의 담당 기사 메모를 운송업체 원장·배정 이력·작업지시 발송으로 확장했습니다. 자체 이사팀 구분은 공개 서비스 구조를 참고한 제안 기준이며 착수 시 확인합니다. 견적 계산과 예약금 수납, 운송업체 정산은 이번 범위에서 제외합니다.
       </NoticeBar>
 

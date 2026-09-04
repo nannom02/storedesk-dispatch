@@ -519,7 +519,7 @@ export default function ServiceIntroduction({
     <div ref={rootRef}>
     <ServiceIntroductionScreen
       hero={{
-        kicker: "컨테이너 보관 창고 운영 ERP · 재공고 개정판",
+        kicker: "3개 보관 거점을 연결하는 창고 운영 ERP",
         title: "상담부터 보관·운송·부분 출고까지 한 원장으로 연결합니다",
         lead: "고객의 물품·물량·기간·희망 보관 등급을 상담에 남기고 자체 이사팀과 외부 계약업체를 배정합니다. 전체 출고만 계약을 종료하며 부분 출고와 재입고·재배치는 보관 상태를 유지합니다.",
         proofKind: "rfp-image",
@@ -566,7 +566,7 @@ export default function ServiceIntroduction({
         eyebrow: "수행 신뢰",
         title: "개발자가 없어도 진행 상황을 화면으로 확인하실 수 있습니다",
         description:
-          "문서 대신 작동하는 화면으로 확인합니다. 지금 보고 계신 프로토타입이 1단계이고, 계약 후 실제 서식과 규칙을 반영한 2차 프로토타입을 최종 확인받은 뒤에 본 개발을 시작합니다.",
+          "문서 대신 작동하는 화면으로 확인합니다. 지금 보고 계신 화면 검수가 1단계이고, 계약 후 실제 서식과 규칙을 반영한 2차 작동형 화면을 최종 확인받은 뒤에 본 개발을 시작합니다.",
         action: { label: "개발·검수 방식 보기", screenId: "delivery" },
         icon: <Users size={20} />,
       }}
@@ -614,7 +614,7 @@ export default function ServiceIntroduction({
         },
         guide: {
           title: "아직 정하지 않은 범위에 대한 의견",
-          description: "재공고의 사진·알림·운송업체 권한과 사설 VPN 기준에 대한 권장안·착수 미팅 조율 기준을 정리했습니다.",
+          description: "사진·알림·운송업체 권한과 사설 VPN 기준에 대한 권장안·착수 미팅 조율 기준을 정리했습니다.",
           action: { label: "착수 전 결정사항 보기", screenId: "decisions" },
         },
       }}

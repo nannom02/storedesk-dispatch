@@ -104,7 +104,7 @@ export default function KickoffDecisions({ onNavigate }: { onNavigate: (screenId
   return (
     <div className="screen" data-screen-wide="true">
       <KickoffDecisionScreen
-        lead="재공고에서 미확정인 사진·알림·운송업체 권한·선택 견적과 사설 VPN 기준을 실제 구현 관점에서 구체화했습니다."
+        lead="착수 전 미확정인 사진·알림·운송업체 권한·선택 견적과 사설 VPN 기준을 실제 구현 관점에서 구체화했습니다."
         recommendationTitle="권장안으로 범위를 함께 확정합니다"
         recommendationDetail="각 항목의 권장 구현안과 조율 기준을 정리했습니다. 착수 미팅에서 포함 범위와 단가를 협의하고, 이후 확장 시점까지 함께 정합니다."
         decisions={decisions}

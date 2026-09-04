@@ -4,7 +4,7 @@ export default function DeliveryMethod({ onNavigate }: { onNavigate: (screenId: 
   return (
     <div className="screen" data-screen-wide="true">
       <DevelopmentReviewScreen
-        lead="사내에 개발자도 전산 담당자도 없다고 하셨습니다. 문서로 확인받는 대신 매 단계에서 실제 화면을 보고 확인하실 수 있도록 진행합니다. 지금 보고 계신 이 프로토타입이 그 첫 번째 산출물입니다."
+        lead="사내에 개발자도 전산 담당자도 없다고 하셨습니다. 문서로 확인받는 대신 매 단계에서 실제 화면을 보고 확인하실 수 있도록 진행합니다. 지금 보고 계신 작동형 화면이 그 첫 번째 산출물입니다."
         support={{
           eyebrow: "실무 담당자 1명 · 주 1회 오프라인 미팅",
           title: "요구사항 확인과 시범운영을 담당자 한 분의 시간에 맞춰 지원합니다",
