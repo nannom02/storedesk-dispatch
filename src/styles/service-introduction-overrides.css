@@ -5,7 +5,7 @@
 
 [data-service-introduction-screen] .service-introduction-flow-canvas > svg[data-service-flow-svg="role"] {
   min-width: 1200px;
-  max-width: 1320px;
+  max-width: 1440px;
   margin-inline: auto;
 }
 
