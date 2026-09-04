@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, Search, Smartphone, Truck } from "lucide-react";
+import { Camera, ChevronRight, Search, Smartphone, Truck } from "lucide-react";
 
 import {
   ChipGroup,
@@ -10,6 +10,7 @@ import {
   PanelRow,
   StageRail,
   StateText,
+  TablePagination,
   TableWrap,
 } from "../components/ui";
 import { INBOUND_STEPS, OUTBOUND_STEPS, TODAY } from "../data/seed";
@@ -165,25 +166,7 @@ export default function Movements({ onNavigate }: { onNavigate: Navigate }) {
           footer={
             <>
               <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}건` : "0건 표시"} · 오늘 예정 {todayMovements.length}건</span>
-              <div className="table-pagination" role="navigation" aria-label="입출고 목록 페이지">
-                <button type="button" aria-label="입출고 목록 이전 페이지" disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)}>
-                  <ChevronLeft size={15} aria-hidden="true" />
-                </button>
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                  <button
-                    key={pageNumber}
-                    type="button"
-                    aria-label={`입출고 목록 ${pageNumber}페이지`}
-                    aria-current={pageNumber === currentPage ? "page" : undefined}
-                    onClick={() => goToPage(pageNumber)}
-                  >
-                    {pageNumber}
-                  </button>
-                ))}
-                <button type="button" aria-label="입출고 목록 다음 페이지" disabled={currentPage === totalPages} onClick={() => goToPage(currentPage + 1)}>
-                  <ChevronRight size={15} aria-hidden="true" />
-                </button>
-              </div>
+              <TablePagination page={currentPage} totalItems={rows.length} pageSize={PAGE_SIZE} label="입출고 목록" onChange={goToPage} />
             </>
           }
         >

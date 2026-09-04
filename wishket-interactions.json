@@ -30,6 +30,13 @@
       "expected": { "role": "status", "name": "고객 목록 요약" }
     },
     {
+      "requirementId": "INT-CUST-PAGE",
+      "screen": "고객·상담",
+      "entry": [{ "role": "button", "name": "고객·상담" }],
+      "control": { "role": "button", "name": "고객 목록 2페이지" },
+      "expected": { "role": "button", "name": "강나래 고객 상세" }
+    },
+    {
       "requirementId": "INT-CUST-CREATE",
       "screen": "고객·상담",
       "entry": [
@@ -89,6 +96,13 @@
       "entry": [{ "role": "button", "name": "계약" }],
       "control": { "role": "button", "name": "연체" },
       "expected": { "role": "status", "name": "계약 목록 요약" }
+    },
+    {
+      "requirementId": "INT-CT-PAGE",
+      "screen": "계약",
+      "entry": [{ "role": "button", "name": "계약" }],
+      "control": { "role": "button", "name": "계약 목록 2페이지" },
+      "expected": { "role": "button", "name": "SC-2026-0640 계약 상세" }
     },
     {
       "requirementId": "INT-CT-OPEN",
@@ -555,7 +569,7 @@
       "screen": "운송 배정·작업지시",
       "entry": [
         { "role": "button", "name": "운송 배정·작업지시" },
-        { "role": "button", "name": "한결운송 상세" }
+        { "role": "button", "name": "한결운송 관리" }
       ],
       "control": { "role": "button", "name": "운송업체 수정 저장" },
       "expected": { "role": "status", "name": "운송업체 기준정보 처리 결과" }

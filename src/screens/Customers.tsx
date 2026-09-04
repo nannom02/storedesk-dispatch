@@ -9,6 +9,7 @@ import {
   Panel,
   PanelRow,
   StateText,
+  TablePagination,
   TableWrap,
 } from "../components/ui";
 import { customers as seedCustomers, TOTAL_CUSTOMERS } from "../data/seed";
@@ -32,6 +33,8 @@ const INITIAL_CUSTOMER = {
   acquisitionSource: "카카오" as AcquisitionSource,
 };
 
+const PAGE_SIZE = 10;
+
 export default function Customers() {
   const { state, actions } = useStore();
   const [filter, setFilter] = useState("all");
@@ -51,6 +54,7 @@ export default function Customers() {
   const [channelOpen, setChannelOpen] = useState(false);
   const [channelName, setChannelName] = useState("지역 제휴 문의");
   const [channelResult, setChannelResult] = useState("");
+  const [page, setPage] = useState(1);
 
   const rows = useMemo(() => {
     const term = keyword.trim();
@@ -70,6 +74,17 @@ export default function Customers() {
   const contracts = state.contracts.filter((contract) => contract.customerId === selectedId);
   const totalCustomers =
     TOTAL_CUSTOMERS + Math.max(0, state.customers.length - seedCustomers.length);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const goToPage = (nextPage: number) => {
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(safePage);
+    const firstRow = rows[(safePage - 1) * PAGE_SIZE];
+    if (firstRow) setSelectedId(firstRow.id);
+  };
 
   const openCustomerForm = () => {
     setNewCustomer(INITIAL_CUSTOMER);
@@ -117,6 +132,7 @@ export default function Customers() {
     setSelectedId(customerId);
     setFilter("all");
     setKeyword("");
+    setPage(1);
     setCustomerOpen(false);
   };
 
@@ -142,7 +158,7 @@ export default function Customers() {
 
       <Panel>
         <div className="filter-bar">
-          <ChipGroup label="고객 구분" options={FILTERS} value={filter} onChange={setFilter} />
+          <ChipGroup label="고객 구분" options={FILTERS} value={filter} onChange={(value) => { setFilter(value); setPage(1); }} />
           <label className="search-field">
             <Search size={16} aria-hidden="true" />
             <span className="visually-hidden">고객 검색</span>
@@ -150,7 +166,7 @@ export default function Customers() {
               type="search"
               value={keyword}
               placeholder="고객명 · 고객번호 · 입금자명 · 연락처"
-              onChange={(event) => setKeyword(event.target.value)}
+              onChange={(event) => { setKeyword(event.target.value); setPage(1); }}
             />
           </label>
           <span className="panel-note" role="status" aria-label="고객 목록 요약">
@@ -173,8 +189,8 @@ export default function Customers() {
         <TableWrap
           footer={
             <>
-              <span>{rows.length}명 표시</span>
-              <span>등록 입금자명 {rows.reduce((sum, c) => sum + c.payerNames.length, 0)}건</span>
+              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}명` : "0명 표시"} · 등록 입금자명 {rows.reduce((sum, c) => sum + c.payerNames.length, 0)}건</span>
+              <TablePagination page={currentPage} totalItems={rows.length} pageSize={PAGE_SIZE} label="고객 목록" onChange={goToPage} />
             </>
           }
         >
@@ -191,7 +207,7 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((customer) => (
+              {pageRows.map((customer) => (
                 <tr key={customer.id} aria-selected={customer.id === selectedId}>
                   <td data-label="고객">
                     <span className="cell-strong">{customer.name}</span>

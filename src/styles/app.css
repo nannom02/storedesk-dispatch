@@ -184,6 +184,7 @@
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--border);
+  font-size: var(--type-ui);
 }
 
 .transport-cost-summary span,
@@ -212,7 +213,7 @@
   background: var(--surface-soft);
 }
 
-.instruction-fields input[type="checkbox"] {
+input[type="checkbox"] {
   accent-color: var(--primary);
 }
 

@@ -176,7 +176,7 @@ export default function TransportOperations() {
                   <th scope="col">활동 지역</th>
                   <th scope="col">수행 실적</th>
                   <th scope="col" data-priority="low">운영 메모</th>
-                  <th scope="col" aria-label="상세" />
+                  <th scope="col" aria-label="관리" />
                 </tr>
               </thead>
               <tbody>
@@ -193,19 +193,19 @@ export default function TransportOperations() {
                     <td data-label="활동 지역">{item.serviceAreas.join(" · ")}</td>
                     <td data-label="수행 실적">{item.completedJobs}건<span className="cell-sub">정시 {item.onTimeRate}%</span></td>
                     <td data-label="운영 메모" data-priority="low">{item.note}</td>
-                    <td data-label="상세">
+                    <td data-label="관리">
                       <div className="row-actions">
                         <button
                           type="button"
                           className="quiet-button"
-                          aria-label={`${item.name} 상세`}
+                          aria-label={`${item.name} 관리`}
                           onClick={(event) => {
                             event.stopPropagation();
                             setVendorId(item.id);
                             openVendorEdit(item.id);
                           }}
                         >
-                          상세
+                          관리
                         </button>
                       </div>
                     </td>

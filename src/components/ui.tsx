@@ -1,4 +1,4 @@
-import { ChevronRight, Info, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, X } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
 export function PageHead({
@@ -182,6 +182,45 @@ export function TableWrap({ children, footer }: { children: ReactNode; footer?: 
     <div className="table-wrap">
       <div className="table-scroll">{children}</div>
       {footer ? <div className="table-foot-note">{footer}</div> : null}
+    </div>
+  );
+}
+
+export function TablePagination({
+  page,
+  totalItems,
+  pageSize,
+  label,
+  onChange,
+}: {
+  page: number;
+  totalItems: number;
+  pageSize: number;
+  label: string;
+  onChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="table-pagination" role="navigation" aria-label={`${label} 페이지`}>
+      <button type="button" aria-label={`${label} 이전 페이지`} disabled={page === 1} onClick={() => onChange(page - 1)}>
+        <ChevronLeft size={15} aria-hidden="true" />
+      </button>
+      {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+        <button
+          key={pageNumber}
+          type="button"
+          aria-label={`${label} ${pageNumber}페이지`}
+          aria-current={pageNumber === page ? "page" : undefined}
+          onClick={() => onChange(pageNumber)}
+        >
+          {pageNumber}
+        </button>
+      ))}
+      <button type="button" aria-label={`${label} 다음 페이지`} disabled={page === totalPages} onClick={() => onChange(page + 1)}>
+        <ChevronRight size={15} aria-hidden="true" />
+      </button>
     </div>
   );
 }

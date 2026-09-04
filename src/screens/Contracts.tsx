@@ -11,6 +11,7 @@ import {
   Panel,
   PanelRow,
   StateText,
+  TablePagination,
   TableWrap,
 } from "../components/ui";
 import { TODAY } from "../data/seed";
@@ -29,6 +30,8 @@ const FILTERS = [
   { id: "만료", label: "만료" },
   { id: "중도 해지", label: "중도 해지" },
 ];
+
+const PAGE_SIZE = 10;
 
 type ContractForm = Pick<
   Contract,
@@ -91,6 +94,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
   const [contractModal, setContractModal] = useState<"create" | "edit" | null>(null);
   const [contractError, setContractError] = useState("");
   const [contractResult, setContractResult] = useState("");
+  const [page, setPage] = useState(1);
   const [contractForm, setContractForm] = useState<ContractForm>({
     customerId: state.customers[0]?.id ?? "",
     warehouseId: state.containers.find((unit) => unit.occupancyStatus === "available")?.warehouseId ?? "WH-1",
@@ -135,6 +139,17 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
     연체: allContracts.filter((c) => c.status === "연체").length,
     만료: allContracts.filter((c) => c.status === "만료").length,
     "중도 해지": allContracts.filter((c) => c.status === "중도 해지").length,
+  };
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const goToPage = (nextPage: number) => {
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(safePage);
+    const firstRow = rows[(safePage - 1) * PAGE_SIZE];
+    if (firstRow) setSelectedId(firstRow.id);
   };
 
   const openCreateContract = () => {
@@ -185,6 +200,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
       setSelectedId(id);
       setFilter("all");
       setKeyword("");
+      setPage(1);
       setContractResult(`${id} 신규 계약을 등록했습니다.`);
     } else if (selected) {
       actions.updateContract(selected.id, contractForm);
@@ -234,7 +250,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
           </div>
         ) : null}
         <div className="filter-bar">
-          <ChipGroup label="계약 상태" options={FILTERS} value={filter} onChange={setFilter} />
+          <ChipGroup label="계약 상태" options={FILTERS} value={filter} onChange={(value) => { setFilter(value); setPage(1); }} />
           <label className="search-field">
             <Search size={16} aria-hidden="true" />
             <span className="visually-hidden">계약 검색</span>
@@ -242,7 +258,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
               type="search"
               value={keyword}
               placeholder="계약번호 · 고객명 · 컨테이너 번호"
-              onChange={(event) => setKeyword(event.target.value)}
+              onChange={(event) => { setKeyword(event.target.value); setPage(1); }}
             />
           </label>
           <span className="panel-note" role="status" aria-label="계약 목록 요약">
@@ -254,10 +270,8 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
         <TableWrap
           footer={
             <>
-              <span>{rows.length}건 표시</span>
-              <span className="tabular">
-                월 이용료 합계 {formatWon(rows.reduce((sum, c) => sum + c.monthlyFee - c.discount, 0))}
-              </span>
+              <span>{rows.length ? `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, rows.length)} / ${rows.length}건` : "0건 표시"} · 월 이용료 합계 <span className="tabular">{formatWon(rows.reduce((sum, c) => sum + c.monthlyFee - c.discount, 0))}</span></span>
+              <TablePagination page={currentPage} totalItems={rows.length} pageSize={PAGE_SIZE} label="계약 목록" onChange={goToPage} />
             </>
           }
         >
@@ -275,7 +289,7 @@ export default function Contracts({ onNavigate }: { onNavigate: Navigate }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((contract) => {
+              {pageRows.map((contract) => {
                 const home = derived.warehouseById.get(contract.warehouseId);
                 const remaining = daysBetween(TODAY, contract.endDate);
                 return (
