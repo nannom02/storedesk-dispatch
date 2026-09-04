@@ -1,0 +1,206 @@
+import { useMemo, useState } from "react";
+import { Lock, ShieldCheck } from "lucide-react";
+
+import {
+  ChipGroup,
+  DescGrid,
+  PageHead,
+  Panel,
+  PanelRow,
+  StateText,
+  TableWrap,
+} from "../components/ui";
+import { useStore } from "../store";
+
+const FILTERS = [
+  { id: "all", label: "전체" },
+  { id: "입금 대조", label: "입금 대조" },
+  { id: "계약", label: "계약" },
+  { id: "발송", label: "발송" },
+  { id: "입출고", label: "입출고" },
+  { id: "삭제 시도", label: "삭제 시도" },
+];
+
+const PERMISSIONS = [
+  { name: "계약 등록·수정", admin: true, superOnly: false },
+  { name: "입금 대조·수동 연결", admin: true, superOnly: false },
+  { name: "안내 발송·문서 발행", admin: true, superOnly: false },
+  { name: "환경 설정 변경", admin: false, superOnly: true },
+  { name: "계약·고객 삭제", admin: false, superOnly: true },
+  { name: "권한 등급 변경", admin: false, superOnly: true },
+];
+
+export default function AuditLog() {
+  const { state, actions } = useStore();
+  const [filter, setFilter] = useState("all");
+
+  const rows = useMemo(
+    () =>
+      state.auditEntries.filter((entry) => (filter === "all" ? true : entry.category === filter)),
+    [state.auditEntries, filter],
+  );
+
+  const isSuper = state.role === "최고관리자";
+
+  return (
+    <div className="screen">
+      <PageHead
+        kicker="관리 · 권한 등급과 처리 이력"
+        title="권한·활동 로그"
+        lead="직원을 등록해 역할별 접근 프로필을 발급하고, 누가 언제 어떤 계약을 바꿨는지 모두 남깁니다. 최고관리자는 관리자별 처리 이력을 확인합니다."
+      />
+
+      <Panel title="직원·접근 프로필" description="직원 등록, 역할 지정, 접근 프로필 발급 이력을 한 원장으로 관리합니다.">
+        <TableWrap footer={<><span>직원 4명 · 활성 3명</span><span>최근 프로필 발급 2026-09-04 08:20</span></>}>
+          <table className="data-table">
+            <thead><tr><th scope="col">직원</th><th scope="col">역할</th><th scope="col">접근 프로필</th><th scope="col">발급 이력</th><th scope="col">상태</th></tr></thead>
+            <tbody>
+              {[
+                ["윤서진", "최고관리자", "운영·정산 전체", "2026-09-04 08:20 · 최고관리자 발급", "활성"],
+                ["김도현", "관리자", "고객·계약·알림", "2026-09-02 09:10 · 프로필 갱신", "활성"],
+                ["남기훈", "창고 현장 담당자", "입출고·창고 조회", "2026-08-28 08:42 · 모바일 접근 발급", "활성"],
+                ["퇴사 직원", "관리자", "접근 없음", "2026-08-15 18:00 · 프로필 회수", "회수"],
+              ].map(([name, role, profile, history, status]) => (
+                <tr key={name}><td data-label="직원"><strong>{name}</strong></td><td data-label="역할">{role}</td><td data-label="접근 프로필">{profile}</td><td data-label="발급 이력">{history}</td><td data-label="상태"><StateText tone={status === "활성" ? "ok" : "neutral"}>{status}</StateText></td></tr>
+              ))}
+            </tbody>
+          </table>
+        </TableWrap>
+      </Panel>
+
+      <PanelRow columns="5-7">
+        <Panel
+          title="권한 등급"
+          description="등급을 바꾸면 아래 기능표와 실제 화면의 제한이 함께 바뀝니다."
+        >
+          <ChipGroup
+            label="현재 권한 등급"
+            options={[
+              { id: "최고관리자", label: "최고관리자" },
+              { id: "관리자", label: "관리자" },
+            ]}
+            value={state.role}
+            onChange={(id) => actions.setRole(id as "최고관리자" | "관리자")}
+          />
+
+          <div role="status" aria-label="권한별 기능 제어">
+            <TableWrap
+              footer={
+                <>
+                  <span>현재 등급 {state.role}</span>
+                  <span>
+                    사용 가능 {PERMISSIONS.filter((item) => isSuper || item.admin).length} / 전체{" "}
+                    {PERMISSIONS.length}
+                  </span>
+                </>
+              }
+            >
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">기능</th>
+                    <th scope="col">현재 등급</th>
+                    <th scope="col">제한 사유</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PERMISSIONS.map((permission) => {
+                    const allowed = isSuper || permission.admin;
+                    return (
+                      <tr key={permission.name}>
+                        <td data-label="기능">
+                          <span className="cell-strong">{permission.name}</span>
+                        </td>
+                        <td data-label="현재 등급">
+                          <StateText tone={allowed ? "ok" : "warn"}>
+                            {allowed ? "사용 가능" : "사용 불가"}
+                          </StateText>
+                        </td>
+                        <td data-label="제한 사유">
+                          {allowed ? (
+                            "-"
+                          ) : (
+                            <span className="disabled-reason" data-density="support">
+                              <Lock size={13} aria-hidden="true" /> 최고관리자 전용 기능입니다.
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableWrap>
+          </div>
+
+          <div className="notice notice-info">
+            <span className="notice-icon" aria-hidden="true">
+              <ShieldCheck size={18} />
+            </span>
+            <div className="notice-body">
+              <strong className="notice-title">삭제는 최고관리자만 실행합니다</strong>
+              <p>
+                관리자 등급에서 삭제를 시도하면 실행되지 않고 `삭제 시도`로 기록됩니다. 실제 삭제도
+                이력에 남아 되돌릴 근거가 됩니다.
+              </p>
+            </div>
+            <button type="button" className="notice-action" disabled={isSuper}>
+              {isSuper ? "현재 등급에서 삭제 가능" : "권한 부족으로 삭제 불가"}
+            </button>
+          </div>
+        </Panel>
+
+        <Panel title="처리 이력" description="대상·행위·처리자·시각이 함께 남습니다.">
+          <div className="filter-bar">
+            <ChipGroup label="활동 유형" options={FILTERS} value={filter} onChange={setFilter} />
+            <span className="panel-note" role="status" aria-label="처리 이력 요약">
+              전체 {state.auditEntries.length}건 중 {rows.length}건 표시
+            </span>
+          </div>
+
+          <TableWrap>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">시각</th>
+                  <th scope="col">처리자</th>
+                  <th scope="col">행위</th>
+                  <th scope="col">대상</th>
+                  <th scope="col" data-priority="low">분류</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((entry) => (
+                  <tr key={entry.id}>
+                    <td data-label="시각" className="date-cell">{entry.at}</td>
+                    <td data-label="처리자">
+                      {entry.actor}
+                      <span className="cell-sub" data-density="support">{entry.role}</span>
+                    </td>
+                    <td data-label="행위">{entry.action}</td>
+                    <td data-label="대상">{entry.target}</td>
+                    <td data-label="분류" data-priority="low">
+                      <StateText tone={entry.category === "삭제 시도" ? "bad" : "neutral"}>
+                        {entry.category}
+                      </StateText>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
+
+          <DescGrid
+            columns="2"
+            items={[
+              { label: "보관 기간", value: "3년 · 이후 분기별 아카이브" },
+              { label: "조회 권한", value: "최고관리자 전체 · 관리자는 본인 처리 건" },
+              { label: "기록 항목", value: "처리자, 등급, 행위, 대상, 시각, 변경 전후 값" },
+              { label: "자동 점검", value: "매일 08:00 미매칭·발송 실패·연동 실패·만료 예정 예외 목록" },
+            ]}
+          />
+        </Panel>
+      </PanelRow>
+    </div>
+  );
+}

@@ -1,0 +1,59 @@
+/*
+ * 서비스 소개 마스터의 긴 문장 가독성 보정과 줄바꿈 보완.
+ *
+ * 네 제안 설명 화면의 타이포 위계는 sha256으로 잠긴 공용 마스터 자산에서 관리합니다.
+ * 프로젝트 스타일은 해당 화면의 제목·본문·보조 문구 크기를 덮어쓰지 않습니다.
+ */
+
+/* ── 서비스 소개 ─────────────────────────────────────────────────────────── */
+
+.service-introduction-hero-copy > span,
+.service-introduction-proof-points li,
+.service-introduction-flow-summary p,
+.service-introduction-role-label span,
+.service-introduction-role-flows button b,
+.service-introduction-role-flows button small,
+.service-introduction-demo button b,
+.service-introduction-demo button small,
+.service-introduction-marker span,
+.service-introduction-workflow-grid small,
+.service-introduction-workflow-grid em,
+.service-introduction-scope-grid article header p,
+.service-introduction-scope-grid article footer,
+.service-introduction-scope-guide div span,
+.service-introduction-support-banner > div > span,
+.service-introduction-highlight-copy > span {
+  font-size: var(--type-ui);
+  line-height: var(--leading-normal);
+}
+
+/*
+ * 히어로 리드는 세 줄짜리 설명 문장이다. 마스터 기본값 25px 는 카드 제목과 같은 크기라
+ * 계층이 평평해지고 긴 문장이 읽기 어렵다. 20px 로 낮춰 제목 → 리드 → 카드 제목 순서를
+ * 살린다.
+ */
+.service-introduction-hero-copy > p {
+  font-size: var(--type-panel);
+  line-height: var(--leading-relaxed);
+}
+
+/* 공용 설명 자산의 제목과 보조 설명은 서로 다른 줄을 유지합니다. */
+.proposal-flow-rail small[data-density="support"],
+.proposal-delivery-rail small[data-density="support"],
+.proposal-screen-links small[data-density="support"],
+.proposal-runbook small[data-density="support"],
+.proposal-delivery-support-grid small[data-density="support"],
+.proposal-role-rail a small[data-density="support"],
+.proposal-decision-summary ol li span small[data-density="support"],
+.proposal-numbered-list li div small[data-density="support"] {
+  display: block;
+  margin-top: 2px;
+}
+
+/* 번호 뱃지는 고정 폭 안에서 숫자 폭을 안정적으로 유지합니다. */
+.proposal-system-flow li > div > span[data-density="meta"]:first-child,
+.proposal-numbered-list li > span,
+.proposal-migration-steps li > span {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}

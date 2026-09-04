@@ -1,0 +1,37 @@
+{
+  "productName": "StoreDesk",
+  "productDescription": "컨테이너 보관 창고 운영 ERP",
+  "projectId": "158215",
+  "sourceUrl": "https://www.wishket.com/project/158215/",
+  "postingUrl": "https://www.wishket.com/project/158215/",
+  "postingTitle": "컨테이너 보관 창고 운영 ERP 구축",
+  "variantId": "codex-revision",
+  "variant": "codex-revision",
+  "slug": "storedesk-dispatch",
+  "createdAt": "2026-09-04",
+  "generator": "codex-app human-directed revision",
+  "revision": {
+    "basedOnProjectId": "158086",
+    "basedOnRepository": "https://github.com/nannom02/storedesk-158086",
+    "method": "기존 프로토타입 기반 개정",
+    "operator": "Codex 앱"
+  },
+  "prototypeVisitTracking": {
+    "enabled": false,
+    "dashboardUrl": "https://msoftech-wishket-bid-ops.vercel.app",
+    "jobId": null,
+    "clientConfig": "public/prototype-visit.json",
+    "policy": "제출 후 7일 동안 AI·자동화 접속은 제외하고 사람 입력 또는 8초 가시 체류가 확인된 외부 방문만 기록하며 활동은 시간당 최대 1회로 묶어 기록"
+  },
+  "publishing": {
+    "repository": "https://github.com/nannom02/storedesk-dispatch",
+    "branch": "main",
+    "vercelProject": "storedesk-dispatch",
+    "deploymentUrl": "https://storedesk-dispatch.vercel.app",
+    "productionAlias": "https://storedesk-dispatch.vercel.app",
+    "note": "#158086 운영 배포를 보존하고 별도 저장소와 별도 Vercel 프로젝트로 배포한다."
+  },
+  "screens": 22,
+  "interactions": 69,
+  "portfolio": { "status": "not_requested" }
+}

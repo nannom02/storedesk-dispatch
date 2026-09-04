@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/prototype-visits",
+      "destination": "https://msoftech-wishket-bid-ops.vercel.app/api/prototype-visits"
+    },
+    {
+      "source": "/api/prototype-visits/:path*",
+      "destination": "https://msoftech-wishket-bid-ops.vercel.app/api/prototype-visits/:path*"
+    }
+  ]
+}
